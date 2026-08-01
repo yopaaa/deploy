@@ -1,0 +1,53 @@
+# Tutorial Build & Usage Image Docker CodeIgniter
+
+Panduan ini menjelaskan cara mem-build image Docker khusus CodeIgniter (`Dockerfile-ci`) dan menggunakannya pada script generator atau file `docker-compose.yml`.
+
+---
+
+## 1. Cara Build Image Docker
+
+Jalankan perintah berikut di folder `/home/yopa/Kuliah/Docker/deploy`:
+
+```bash
+docker build -t nusantara-php84-ci:1.0 -f Dockerfile-ci .
+```
+
+*Keterangan:*
+- `-t nusantara-php84-ci:1.0` : Nama dan tag image baru (khusus CodeIgniter yang sudah dilengkapi `intl`, `mysqli`, `pdo_mysql`, `zip`, `gd`, dll).
+- `-f Dockerfile-ci` : Menggunakan file `Dockerfile-ci` sebagai rujukan build.
+
+---
+
+## 2. Cara Menggunakan Image Baru di `docker-compose.yml`
+
+Buka file `docker-compose.yml` pada project CodeIgniter Anda (atau perbarui script generator `generate-ci4.sh` dan `generate-ci3.sh`), ubah bagian `image` pada service `app`:
+
+```yaml
+services:
+  app:
+    image: nusantara-php84-ci:1.0
+    container_name: ${APP_CONTAINER}
+    user: "${HOST_UID}:${HOST_GID}"
+    restart: unless-stopped
+    working_dir: /var/www
+    ...
+```
+
+---
+
+## 3. Menjalankan Ulang Container yang Sudah Ada
+
+Jika container project sudah berjalan dan Anda ingin memperbaruinya ke image baru, jalankan:
+
+```bash
+cd /home/yopa/Documents/website_namauser_ci4
+docker compose up -d --force-recreate
+```
+
+---
+
+## 4. Keunggulan Image `nusantara-php84-ci:1.0`
+- ✅ **`ext-intl` Pre-installed**: Mencegah error `Class "Locale" not found` pada CodeIgniter 4.
+- ✅ **Database Drivers**: Sudah terpasang `mysqli` dan `pdo_mysql` untuk koneksi MariaDB / MySQL.
+- ✅ **Composer Ready**: Dilengkapi Composer versi terbaru secara bawaan.
+- ✅ **Ringan & Cepat**: Berbasis Alpine Linux dengan pembersihan cache installer.

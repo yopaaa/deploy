@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # =====================================
-# Laravel Docker Generator
+# CodeIgniter 4 Docker Generator
 # =====================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -24,13 +24,13 @@ log_error() {
 clear
 
 echo "========================================"
-echo " Laravel Docker Generator"
+echo " CodeIgniter 4 Docker Generator"
 echo "========================================"
 echo ""
 
 # ---------- Input ----------
 read -p "Masukkan username        : " USER_NAME
-WEBSITE_NAME="laravel"
+WEBSITE_NAME="ci4"
 
 # ---------- Otomatisasi Port (CSV) ----------
 if [ ! -f "$CSV_FILE" ]; then
@@ -63,11 +63,11 @@ fi
 BASE_DIR="/home/yopa/Documents"
 PROJECT_NAME="website_${USER_NAME}_${WEBSITE_NAME}"
 PROJECT_DIR="${BASE_DIR}/${PROJECT_NAME}"
-WWW_DIR="/home/yopa/filebrowser/data/users/${USER_NAME}/laravel"
+WWW_DIR="/home/yopa/filebrowser/data/users/${USER_NAME}/ci4"
 WWW_HTML_DIR="/home/yopa/filebrowser/data/users/${USER_NAME}/www"
-APP_CONTAINER="${USER_NAME}_laravel_container"
-NGINX_CONTAINER="${USER_NAME}_nginx_laravel_container"
-NETWORK_NAME="laravel-net-${USER_NAME}_laravel"
+APP_CONTAINER="${USER_NAME}_ci4_container"
+NGINX_CONTAINER="${USER_NAME}_nginx_ci4_container"
+NETWORK_NAME="ci4-net-${USER_NAME}_ci4"
 HOST_UID=$(id -u)
 HOST_GID=$(id -g)
 
@@ -76,7 +76,7 @@ echo ""
 log_info "Konfigurasi project"
 echo "User          : ${USER_NAME}"
 echo "Website       : ${WEBSITE_NAME}"
-echo "Port Laravel  : ${PORT}"
+echo "Port CI4      : ${PORT}"
 echo "Port WWW      : ${PORT_WWW}"
 echo "Project Dir   : ${PROJECT_DIR}"
 echo "WWW Dir       : ${WWW_DIR}"
@@ -88,22 +88,22 @@ echo ""
 # =====================================
 log_info "Membuat struktur folder & mengatur izin akses..."
 mkdir -p "${PROJECT_DIR}/docker-config/nginx"
-mkdir -p "${WWW_DIR}/storage/app"
-mkdir -p "${WWW_DIR}/storage/framework/cache"
-mkdir -p "${WWW_DIR}/storage/framework/sessions"
-mkdir -p "${WWW_DIR}/storage/framework/views"
-mkdir -p "${WWW_DIR}/storage/logs"
-mkdir -p "${WWW_DIR}/bootstrap/cache"
+mkdir -p "${WWW_DIR}/writable/cache"
+mkdir -p "${WWW_DIR}/writable/logs"
+mkdir -p "${WWW_DIR}/writable/session"
+mkdir -p "${WWW_DIR}/writable/uploads"
+mkdir -p "${WWW_DIR}/writable/debugbar"
 mkdir -p "${WWW_HTML_DIR}"
 
-chmod -R 777 "${WWW_DIR}/storage" "${WWW_DIR}/bootstrap/cache" 2>/dev/null || true
+# Set izin writable penuh untuk folder writable CI4
+chmod -R 777 "${WWW_DIR}/writable" 2>/dev/null || true
 
 if [ $? -ne 0 ]; then
     log_error "Gagal membuat folder"
     exit 1
 fi
 
-log_success "Folder & Izin Storage Laravel berhasil dibuat"
+log_success "Folder & Izin Writable CI4 berhasil dibuat"
 
 # =====================================
 # docker-compose.yml
@@ -113,7 +113,7 @@ cat > "${PROJECT_DIR}/docker-compose.yml" <<EOF
 services:
 
   app:
-    image: nusantara-php84:1.0
+    image: nusantara-php84-ci:1.0
     container_name: ${APP_CONTAINER}
     user: "${HOST_UID}:${HOST_GID}"
     restart: unless-stopped
@@ -227,30 +227,28 @@ echo "========================================"
 echo ""
 
 echo "Pilih tindakan yang ingin dijalankan:"
-echo "1) Full Setup (Permissions + .env + Composer + Key Generate)"
+echo "1) Full Setup (Permissions + .env + Composer Install)"
 echo "2) Run Composer Install"
-echo "3) Run Key Generate (php artisan key:generate)"
-echo "4) Run Database Migration & Seed (php artisan migrate --seed)"
-echo "5) Run Custom Artisan / Script (bebas)"
+echo "3) Run Database Migration (php spark migrate)"
+echo "4) Run Database Seeder (php spark db:seed)"
+echo "5) Run Custom Command / Script (bebas)"
 read -p "Pilihan [1-5]: " CHOICE
 
 case \$CHOICE in
     1)
-        echo "[INFO] Mengatur folder storage..."
-        mkdir -p "\${WWW_DIR}/storage/app" "\${WWW_DIR}/storage/framework/cache" "\${WWW_DIR}/storage/framework/sessions" "\${WWW_DIR}/storage/framework/views" "\${WWW_DIR}/storage/logs" "\${WWW_DIR}/bootstrap/cache"
-        chmod -R 777 "\${WWW_DIR}/storage" "\${WWW_DIR}/bootstrap/cache" 2>/dev/null || true
+        echo "[INFO] Mengatur folder writable..."
+        mkdir -p "\${WWW_DIR}/writable/cache" "\${WWW_DIR}/writable/logs" "\${WWW_DIR}/writable/session" "\${WWW_DIR}/writable/uploads" "\${WWW_DIR}/writable/debugbar"
+        chmod -R 777 "\${WWW_DIR}/writable" 2>/dev/null || true
 
-        if [ -f "\${WWW_DIR}/.env.example" ] && [ ! -f "\${WWW_DIR}/.env" ]; then
-            cp "\${WWW_DIR}/.env.example" "\${WWW_DIR}/.env"
-            echo "[SUCCESS] File .env berhasil dibuat dari .env.example"
+        if [ -f "\${WWW_DIR}/env" ] && [ ! -f "\${WWW_DIR}/.env" ]; then
+            cp "\${WWW_DIR}/env" "\${WWW_DIR}/.env"
+            sed -i 's/# CI_ENVIRONMENT = production/CI_ENVIRONMENT = development/g' "\${WWW_DIR}/.env"
+            echo "[SUCCESS] File .env berhasil dibuat (Mode: development)"
         fi
 
         echo "[INFO] Running composer install..."
         docker exec -it "\${CONTAINER_NAME}" composer install
-
-        echo "[INFO] Generate Key..."
-        docker exec -it "\${CONTAINER_NAME}" php artisan key:generate
-        echo "[SUCCESS] Full Setup Laravel Selesai!"
+        echo "[SUCCESS] Full Setup Selesai!"
         ;;
 
     2)
@@ -258,21 +256,20 @@ case \$CHOICE in
         ;;
 
     3)
-        docker exec -it "\${CONTAINER_NAME}" php artisan key:generate
+        docker exec -it "\${CONTAINER_NAME}" php spark migrate
         ;;
 
     4)
-        read -p "Jalankan dengan Seeder? (y/n) [default: y]: " WITH_SEED
-        WITH_SEED=\${WITH_SEED:-y}
-        if [ "\$WITH_SEED" = "y" ] || [ "\$WITH_SEED" = "Y" ]; then
-            docker exec -it "\${CONTAINER_NAME}" php artisan migrate --seed
+        read -p "Masukkan nama Seeder (kosongkan untuk default): " SEEDER_NAME
+        if [ -n "\$SEEDER_NAME" ]; then
+            docker exec -it "\${CONTAINER_NAME}" php spark db:seed "\$SEEDER_NAME"
         else
-            docker exec -it "\${CONTAINER_NAME}" php artisan migrate
+            docker exec -it "\${CONTAINER_NAME}" php spark db:seed
         fi
         ;;
 
     5)
-        read -p "Masukkan perintah artisan/script (misal: php artisan db:seed --class=UserSeeder ATAU php custom.php): " CUSTOM_CMD
+        read -p "Masukkan perintah/script (misal: php check_tables.php): " CUSTOM_CMD
         if [ -n "\$CUSTOM_CMD" ]; then
             docker exec -it "\${CONTAINER_NAME}" \$CUSTOM_CMD
         else
@@ -295,7 +292,7 @@ log_success "build.sh berhasil dibuat di ${PROJECT_DIR}"
 # =====================================
 log_info "Membuat README.md..."
 cat > "${PROJECT_DIR}/README.md" <<EOF
-# Laravel Docker Deploy
+# CodeIgniter 4 Docker Deploy
 
 ## Informasi
 
@@ -310,13 +307,13 @@ cat > "${PROJECT_DIR}/README.md" <<EOF
 
 ## Database (External)
 
-Silakan gunakan konfigurasi database MariaDB pusat kamu. Gunakan nama container MariaDB pusat sebagai DB Host di file \`.env\` Laravel kamu.
+Silakan gunakan konfigurasi database MariaDB pusat kamu. Gunakan nama container MariaDB pusat sebagai DB Host di file \`.env\` CodeIgniter 4 kamu.
 
 ---
 
 ## Helper Exec & Build
 
-Jalankan script \`./build.sh\` di direktori ini untuk menjalankan composer install, key generate, migration, seeder, atau custom script:
+Jalankan script \`./build.sh\` di direktori ini untuk menjalankan composer install, migration, seeder, atau custom script:
 
 \`\`\`bash
 ./build.sh
@@ -391,7 +388,7 @@ fi
 # =====================================
 echo ""
 echo "========================================"
-log_success "Laravel project berhasil dibuat"
+log_success "CodeIgniter 4 project berhasil dibuat"
 echo "========================================"
 echo ""
 echo "Project   : ${PROJECT_DIR}"
