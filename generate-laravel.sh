@@ -1,36 +1,28 @@
 #!/bin/bash
 
 # =====================================
-# Laravel Docker Generator
+# Laravel Docker Generator (FileBrowser Target & Git Support)
 # =====================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CSV_FILE="${SCRIPT_DIR}/port.csv"
 
 # ---------- Logging ----------
-log_info() {
-    echo "[INFO] $1"
-}
-
-log_success() {
-    echo "[SUCCESS] $1"
-}
-
-log_error() {
-    echo "[ERROR] $1"
-}
+log_info() { echo "[INFO] $1"; }
+log_success() { echo "[SUCCESS] $1"; }
+log_error() { echo "[ERROR] $1"; }
 
 # ---------- Header ----------
 clear
-
 echo "========================================"
 echo " Laravel Docker Generator"
 echo "========================================"
 echo ""
 
 # ---------- Input ----------
-read -p "Masukkan username        : " USER_NAME
+read -p "Masukkan username            : " USER_NAME
 WEBSITE_NAME="laravel"
+read -p "Masukkan Repo GitHub (opsional): " GITHUB_REPO
 
 # ---------- Otomatisasi Port (CSV) ----------
 if [ ! -f "$CSV_FILE" ]; then
@@ -79,15 +71,28 @@ echo "Website       : ${WEBSITE_NAME}"
 echo "Port Laravel  : ${PORT}"
 echo "Port WWW      : ${PORT_WWW}"
 echo "Project Dir   : ${PROJECT_DIR}"
-echo "WWW Dir       : ${WWW_DIR}"
-echo "WWW HTML Dir  : ${WWW_HTML_DIR}"
+echo "Source Dir    : ${WWW_DIR} (FileBrowser)"
+echo "WWW HTML Dir  : ${WWW_HTML_DIR} (FileBrowser)"
 echo ""
 
 # =====================================
-# Create Folder & Permission Pre-set
+# Setup Directory & Git Clone
 # =====================================
-log_info "Membuat struktur folder & mengatur izin akses..."
 mkdir -p "${PROJECT_DIR}/docker-config/nginx"
+
+if [ -n "$GITHUB_REPO" ]; then
+    log_info "Cloning repository GitHub ke FileBrowser: ${WWW_DIR}..."
+    mkdir -p "$(dirname "$WWW_DIR")"
+    git clone "$GITHUB_REPO" "$WWW_DIR"
+    if [ $? -ne 0 ]; then
+        log_error "Gagal me-clone repository GitHub."
+        exit 1
+    fi
+else
+    log_info "Membuat direktori source di FileBrowser: ${WWW_DIR}..."
+    mkdir -p "$WWW_DIR"
+fi
+
 mkdir -p "${WWW_DIR}/storage/app"
 mkdir -p "${WWW_DIR}/storage/framework/cache"
 mkdir -p "${WWW_DIR}/storage/framework/sessions"
@@ -97,13 +102,7 @@ mkdir -p "${WWW_DIR}/bootstrap/cache"
 mkdir -p "${WWW_HTML_DIR}"
 
 chmod -R 777 "${WWW_DIR}/storage" "${WWW_DIR}/bootstrap/cache" 2>/dev/null || true
-
-if [ $? -ne 0 ]; then
-    log_error "Gagal membuat folder"
-    exit 1
-fi
-
-log_success "Folder & Izin Storage Laravel berhasil dibuat"
+log_success "Struktur folder & izin storage Laravel berhasil disiapkan"
 
 # =====================================
 # docker-compose.yml
@@ -219,20 +218,24 @@ cat > "${PROJECT_DIR}/build.sh" <<EOF
 CONTAINER_NAME="${APP_CONTAINER}"
 WWW_DIR="${WWW_DIR}"
 
-clear
-echo "========================================"
-echo " Helper Tool - ${PROJECT_NAME}"
-echo " Container  : \${CONTAINER_NAME}"
-echo "========================================"
-echo ""
+CHOICE="\$1"
+EXTRA_PARAM="\$2"
 
-echo "Pilih tindakan yang ingin dijalankan:"
-echo "1) Full Setup (Permissions + .env + Composer + Key Generate)"
-echo "2) Run Composer Install"
-echo "3) Run Key Generate (php artisan key:generate)"
-echo "4) Run Database Migration & Seed (php artisan migrate --seed)"
-echo "5) Run Custom Artisan / Script (bebas)"
-read -p "Pilihan [1-5]: " CHOICE
+if [ -z "\$CHOICE" ]; then
+    clear
+    echo "========================================"
+    echo " Helper Tool - ${PROJECT_NAME}"
+    echo " Container  : \${CONTAINER_NAME}"
+    echo "========================================"
+    echo ""
+    echo "Pilih tindakan yang ingin dijalankan:"
+    echo "1) Full Setup (Permissions + .env + Composer + Key Generate)"
+    echo "2) Run Composer Install"
+    echo "3) Run Key Generate (php artisan key:generate)"
+    echo "4) Run Database Migration & Seed (php artisan migrate --seed)"
+    echo "5) Run Custom Artisan / Script (bebas)"
+    read -p "Pilihan [1-5]: " CHOICE
+fi
 
 case \$CHOICE in
     1)
@@ -246,42 +249,51 @@ case \$CHOICE in
         fi
 
         echo "[INFO] Running composer install..."
-        docker exec -it "\${CONTAINER_NAME}" composer install
+        docker exec "\${CONTAINER_NAME}" composer install
 
         echo "[INFO] Generate Key..."
-        docker exec -it "\${CONTAINER_NAME}" php artisan key:generate
+        docker exec "\${CONTAINER_NAME}" php artisan key:generate
         echo "[SUCCESS] Full Setup Laravel Selesai!"
         ;;
 
     2)
-        docker exec -it "\${CONTAINER_NAME}" composer install
+        docker exec "\${CONTAINER_NAME}" composer install
         ;;
 
     3)
-        docker exec -it "\${CONTAINER_NAME}" php artisan key:generate
+        docker exec "\${CONTAINER_NAME}" php artisan key:generate
         ;;
 
     4)
-        read -p "Jalankan dengan Seeder? (y/n) [default: y]: " WITH_SEED
+        WITH_SEED="\$EXTRA_PARAM"
+        if [ -z "\$WITH_SEED" ] && [ -t 0 ]; then
+            read -p "Jalankan dengan Seeder? (y/n) [default: y]: " WITH_SEED
+        fi
         WITH_SEED=\${WITH_SEED:-y}
+
         if [ "\$WITH_SEED" = "y" ] || [ "\$WITH_SEED" = "Y" ]; then
-            docker exec -it "\${CONTAINER_NAME}" php artisan migrate --seed
+            docker exec "\${CONTAINER_NAME}" php artisan migrate --seed
         else
-            docker exec -it "\${CONTAINER_NAME}" php artisan migrate
+            docker exec "\${CONTAINER_NAME}" php artisan migrate
         fi
         ;;
 
     5)
-        read -p "Masukkan perintah artisan/script (misal: php artisan db:seed --class=UserSeeder ATAU php custom.php): " CUSTOM_CMD
+        CUSTOM_CMD="\$EXTRA_PARAM"
+        if [ -z "\$CUSTOM_CMD" ] && [ -t 0 ]; then
+            read -p "Masukkan perintah artisan/script (misal: php artisan db:seed --class=UserSeeder): " CUSTOM_CMD
+        fi
+
         if [ -n "\$CUSTOM_CMD" ]; then
-            docker exec -it "\${CONTAINER_NAME}" \$CUSTOM_CMD
+            docker exec "\${CONTAINER_NAME}" \$CUSTOM_CMD
         else
             echo "[ERROR] Perintah tidak boleh kosong."
+            exit 1
         fi
         ;;
 
     *)
-        echo "[ERROR] Pilihan tidak valid."
+        echo "[ERROR] Pilihan '\$CHOICE' tidak valid."
         exit 1
         ;;
 esac
@@ -305,6 +317,7 @@ cat > "${PROJECT_DIR}/README.md" <<EOF
 | Website | ${WEBSITE_NAME} |
 | Port App | ${PORT} |
 | Port WWW | ${PORT_WWW} |
+| Source Dir (FileBrowser) | ${WWW_DIR} |
 
 ---
 
@@ -345,21 +358,6 @@ docker compose down
 \`\`\`bash
 docker exec -it ${APP_CONTAINER} sh
 \`\`\`
-
----
-
-## Struktur Folder
-
-\`\`\`
-${PROJECT_NAME}
-├── docker-compose.yml
-├── README.md
-├── build.sh
-└── docker-config
-    └── nginx
-        ├── default.conf
-        └── www.conf
-\`\`\`
 EOF
 
 log_success "README.md berhasil dibuat"
@@ -394,9 +392,10 @@ echo "========================================"
 log_success "Laravel project berhasil dibuat"
 echo "========================================"
 echo ""
-echo "Project   : ${PROJECT_DIR}"
-echo "Port App  : ${PORT}"
-echo "Port WWW  : ${PORT_WWW}"
-echo "Helper    : ${PROJECT_DIR}/build.sh"
+echo "Project Dir   : ${PROJECT_DIR}"
+echo "Source Dir    : ${WWW_DIR} (FileBrowser)"
+echo "Port App      : ${PORT}"
+echo "Port WWW      : ${PORT_WWW}"
+echo "Helper        : ${PROJECT_DIR}/build.sh"
 echo ""
 log_success "Selesai"
