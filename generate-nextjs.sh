@@ -136,7 +136,7 @@ services:
     user: "${HOST_UID}:${HOST_GID}"
     restart: unless-stopped
     working_dir: /var/www
-    command: sh -c "if [ ! -d node_modules ] && [ -f package.json ]; then npm install; fi && npm run dev"
+    command: sh -c "if [ -f package.json ]; then npm install; fi && npm run dev"
     environment:
       - PORT=3000
     volumes:
@@ -348,7 +348,7 @@ log_info "Menjalankan docker compose..."
 
 cd "${PROJECT_DIR}"
 
-sudo docker compose up -d
+docker compose up -d
 
 if [ $? -ne 0 ]; then
     log_error "Docker gagal dijalankan"

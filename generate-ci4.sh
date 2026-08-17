@@ -395,7 +395,7 @@ log_info "Menjalankan docker compose..."
 
 cd "${PROJECT_DIR}"
 
-sudo docker compose up -d
+docker compose up -d
 
 if [ $? -ne 0 ]; then
     log_error "Docker gagal dijalankan"

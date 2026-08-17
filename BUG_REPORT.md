@@ -311,7 +311,7 @@ fi
 
 ---
 
-### BUG-07: handleContainer Tidak Memvalidasi Username dan Framework
+### BUG-07: ~~handleContainer Tidak Memvalidasi Username dan Framework~~ ✅ FIXED
 
 **File:** `api/main.go`  
 **Baris:** 458-514
@@ -357,7 +357,7 @@ if !validNameRegex.MatchString(req.Username) || !validNameRegex.MatchString(req.
 
 ---
 
-### BUG-08: Next.js Container Tidak Akan Auto-Update Dependencies
+### BUG-08: ~~Next.js Container Tidak Akan Auto-Update Dependencies~~ ✅ FIXED
 
 **File:** `generate-nextjs.sh`  
 **Baris:** 112
@@ -391,7 +391,7 @@ command: sh -c "npm run dev"
 
 ---
 
-### BUG-09: `sudo docker compose` Gagal via API (Non-Interactive sudo)
+### BUG-09: ~~`sudo docker compose` Gagal via API (Non-Interactive sudo)~~ ✅ FIXED
 
 **File:** Semua `generate-*.sh`  
 **Baris:** 379 (laravel), 376 (ci4), 340 (ci3), 329 (nextjs), 375 (php)

@@ -472,6 +472,12 @@ func handleContainer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !validNameRegex.MatchString(req.Username) || !validNameRegex.MatchString(req.Framework) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(ApiResponse{Status: "error", Message: "Username atau Framework mengandung karakter ilegal"})
+		return
+	}
+
 	allowedActions := map[string]bool{"restart": true, "stop": true, "start": true, "down": true, "ps": true}
 	if !allowedActions[req.Action] {
 		w.WriteHeader(http.StatusBadRequest)
