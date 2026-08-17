@@ -46,7 +46,12 @@ func loadEnv(envPath string) {
 		if len(parts) == 2 {
 			key := strings.TrimSpace(parts[0])
 			val := strings.TrimSpace(parts[1])
-			val = strings.Trim(val, `"'`)
+			if (strings.HasPrefix(val, `"`) && strings.HasSuffix(val, `"`)) ||
+				(strings.HasPrefix(val, `'`) && strings.HasSuffix(val, `'`)) {
+				if len(val) >= 2 {
+					val = val[1 : len(val)-1]
+				}
+			}
 			if os.Getenv(key) == "" {
 				os.Setenv(key, val)
 			}
@@ -639,7 +644,7 @@ func handleList(w http.ResponseWriter, r *http.Request) {
 		CreatedAt string `json:"created_at"`
 	}
 
-	var list []WebItem
+	list := make([]WebItem, 0)
 	for i, row := range records {
 		if i == 0 || len(row) < 5 {
 			continue
@@ -704,6 +709,10 @@ func handleWhitelist(w http.ResponseWriter, r *http.Request) {
 
 // 8. Endpoint: GET /api/health -> Health Check
 func handleHealth(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, `{"status":"error","message":"Method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":    "healthy",
 		"timestamp": time.Now().Format(time.RFC3339),

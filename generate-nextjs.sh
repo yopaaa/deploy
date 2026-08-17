@@ -131,7 +131,7 @@ cat > "${PROJECT_DIR}/docker-compose.yml" <<EOF
 services:
 
   app:
-    image: node:20-alpine
+    image: nusantara-node20-nextjs:1.0
     container_name: ${APP_CONTAINER}
     user: "${HOST_UID}:${HOST_GID}"
     restart: unless-stopped

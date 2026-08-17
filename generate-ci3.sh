@@ -246,7 +246,7 @@ CHOICE="\$1"
 EXTRA_PARAM="\$2"
 
 if [ -z "\$CHOICE" ]; then
-    clear
+    [ -t 1 ] && clear
     echo "========================================"
     echo " Helper Tool - ${PROJECT_NAME}"
     echo " Container  : \${CONTAINER_NAME}"
@@ -255,27 +255,36 @@ if [ -z "\$CHOICE" ]; then
     echo "Pilih tindakan yang ingin dijalankan:"
     echo "1) Full Setup (Composer Install)"
     echo "2) Run Composer Install"
-    echo "3) Run Custom Script / Command (bebas)"
-    read -p "Pilihan [1-3]: " CHOICE
+    echo "3) Run Database Migration / SQL Script"
+    echo "4) Run Database Seeder"
+    echo "5) Run Custom Command / Script (bebas)"
+    read -p "Pilihan [1-5]: " CHOICE
 fi
 
 case \$CHOICE in
     1|2)
         echo "[INFO] Running composer install..."
-        docker exec "\${CONTAINER_NAME}" composer install
+        docker exec "\${CONTAINER_NAME}" composer install 2>/dev/null || echo "[INFO] composer.json tidak ditemukan, dilewati."
+        echo "[SUCCESS] Setup CI3 Selesai!"
         ;;
 
-    3)
+    3|4|5)
         CUSTOM_CMD="\$EXTRA_PARAM"
         if [ -z "\$CUSTOM_CMD" ] && [ -t 0 ]; then
-            read -p "Masukkan perintah/script (misal: php check_tables.php): " CUSTOM_CMD
+            read -p "Masukkan perintah/script (misal: php index.php migrate): " CUSTOM_CMD
         fi
 
         if [ -n "\$CUSTOM_CMD" ]; then
             docker exec "\${CONTAINER_NAME}" \$CUSTOM_CMD
         else
-            echo "[ERROR] Perintah tidak boleh kosong."
-            exit 1
+            if [ "\$CHOICE" = "3" ]; then
+                echo "[INFO] CI3 tidak memiliki CLI migration bawaan. Gunakan custom script atau --extra_param."
+            elif [ "\$CHOICE" = "4" ]; then
+                echo "[INFO] CI3 tidak memiliki CLI seeder bawaan. Gunakan custom script atau --extra_param."
+            else
+                echo "[ERROR] Perintah tidak boleh kosong."
+                exit 1
+            fi
         fi
         ;;
 

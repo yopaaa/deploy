@@ -92,7 +92,7 @@ Setiap file `build.sh` yang di-generate wajib memiliki pemetaan angka `1–5` ya
 * **Native PHP / HTML / CSS**: Gunakan image custom `nusantara-php84-native:1.0` (dari `Dockerfile-php`).
 * **Laravel (Pure)**: Gunakan image custom `nusantara-php84-laravel:1.0` (dari `Dockerfile-laravel`).
 * **CodeIgniter 4 & CI3**: Gunakan image custom `nusantara-php84-ci:1.0` (dari `Dockerfile-ci`).
-* **Next.js**: Gunakan image `node:20-alpine` (dari `Dockerfile-nextjs`) dengan Nginx reverse proxy ke `app:3000`.
+* **Next.js**: Gunakan image custom `nusantara-node20-nextjs:1.0` (dari `Dockerfile-nextjs`) dengan Nginx reverse proxy ke `app:3000`.
 * **Shared Network**: Koneksikan ke `mariadb-shared-net` (`net-phpmyadmin_shared`).
 
 ### 🔹 Rule 10: Kompatibilitas Non-Interaktif (API & Automation)
