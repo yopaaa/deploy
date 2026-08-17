@@ -79,7 +79,7 @@ if [ -z "$DB_USER" ]; then
     exit 1
 fi
 
-# Tentukan Nama Database
+# Tentukan Nama Database dan Dedicated DB User (1 DB = 1 DB User)
 if [ -n "$CUSTOM_DB_NAME" ]; then
     # Jika custom db name tidak diawali dengan username, tambahkan prefix agar aman & terisolasi
     if [[ "$CUSTOM_DB_NAME" == user_${DB_USER}* ]] || [[ "$CUSTOM_DB_NAME" == ${DB_USER}_* ]]; then
@@ -91,17 +91,18 @@ else
     DB_NAME="user_${DB_USER}"
 fi
 
+ACTUAL_DB_USER="${DB_NAME}"
+
 DB_PASS=$(generate_password)
 CREATED_AT=$(date '+%Y-%m-%d %H:%M:%S')
 
-log_info "Membuat database '${DB_NAME}' dan user '${DB_USER}' di ${CONTAINER_NAME}..."
+log_info "Membuat database '${DB_NAME}' dan dedicated user '${ACTUAL_DB_USER}' di ${CONTAINER_NAME}..."
 
-# Eksekusi Query ke Container MariaDB
+# Eksekusi Query ke Container MariaDB (1 Database = 1 Dedicated User)
 sudo docker exec -i -e MYSQL_PWD="${ROOT_PW}" ${CONTAINER_NAME} mariadb -u root <<EOF
-CREATE DATABASE IF NOT EXISTS ${DB_NAME};
-CREATE USER IF NOT EXISTS '${DB_USER}'@'%' IDENTIFIED BY '${DB_PASS}';
-REVOKE ALL PRIVILEGES, GRANT OPTION FROM '${DB_USER}'@'%';
-GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'%';
+CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\`;
+CREATE USER IF NOT EXISTS '${ACTUAL_DB_USER}'@'%' IDENTIFIED BY '${DB_PASS}';
+GRANT ALL PRIVILEGES ON \`${DB_NAME}\`.* TO '${ACTUAL_DB_USER}'@'%';
 FLUSH PRIVILEGES;
 EOF
 
@@ -110,7 +111,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-log_success "Database '${DB_NAME}' dan User '${DB_USER}' berhasil dibuat di MariaDB"
+log_success "Database '${DB_NAME}' dan Dedicated User '${ACTUAL_DB_USER}' berhasil dibuat di MariaDB"
 
 # =========================
 # 1. Buat File Kredensial Spesifik Per Database (Tidak saling timpa)
@@ -126,7 +127,7 @@ cat > "${SPECIFIC_MD}" <<EOF
 | **DB Host** | ${CONTAINER_NAME} |
 | **DB Port** | 3306 |
 | **DB Name** | ${DB_NAME} |
-| **DB User** | ${DB_USER} |
+| **DB User** | ${ACTUAL_DB_USER} |
 | **DB Password** | ${DB_PASS} |
 | **Created At** | ${CREATED_AT} |
 
@@ -156,14 +157,13 @@ Dokumen ini berisi seluruh database yang dimiliki oleh user **${DB_USER}**.
 
 | No | DB Name | Host | Port | User | Password | Created At |
 |---|---|---|---|---|---|---|
-| 1 | \`${DB_NAME}\` | \`${CONTAINER_NAME}\` | \`3306\` | \`${DB_USER}\` | \`${DB_PASS}\` | ${CREATED_AT} |
+| 1 | \`${DB_NAME}\` | \`${CONTAINER_NAME}\` | \`3306\` | \`${ACTUAL_DB_USER}\` | \`${DB_PASS}\` | ${CREATED_AT} |
 EOF
 else
-    # Hitung jumlah baris database yang sudah ada di tabel
-    COUNT=$(grep -c "^|" "$MASTER_MD")
-    INDEX=$((COUNT - 1)) # kurangi header & separator
-    if [ "$INDEX" -lt 1 ]; then INDEX=1; fi
-    echo "| ${INDEX} | \`${DB_NAME}\` | \`${CONTAINER_NAME}\` | \`3306\` | \`${DB_USER}\` | \`${DB_PASS}\` | ${CREATED_AT} |" >> "$MASTER_MD"
+    # Hitung hanya baris data tabel yang ada (Dimulai dengan | <angka>)
+    DATA_COUNT=$(grep -c "^| [0-9]" "$MASTER_MD" 2>/dev/null || echo "0")
+    INDEX=$((DATA_COUNT + 1))
+    echo "| ${INDEX} | \`${DB_NAME}\` | \`${CONTAINER_NAME}\` | \`3306\` | \`${ACTUAL_DB_USER}\` | \`${DB_PASS}\` | ${CREATED_AT} |" >> "$MASTER_MD"
 fi
 
 chmod 666 "${MASTER_MD}" 2>/dev/null || true
@@ -177,7 +177,7 @@ log_success "Kredensial Database Berhasil Dibuat:"
 echo "========================================"
 echo "DB_HOST     : ${CONTAINER_NAME}"
 echo "DB_DATABASE : ${DB_NAME}"
-echo "DB_USERNAME : ${DB_USER}"
+echo "DB_USERNAME : ${ACTUAL_DB_USER}"
 echo "DB_PASSWORD : ${DB_PASS}"
 echo "FILE_SPESIFIK : ${DEST_SPECIFIC_MD}"
 echo "FILE_MASTER   : ${MASTER_MD}"

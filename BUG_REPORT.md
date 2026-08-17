@@ -459,7 +459,7 @@ Hanya jalankan `clear` jika terminal interaktif:
 
 ---
 
-### BUG-11: Index Numbering Salah di DATABASE.md Master Table
+### BUG-11: ~~Index Numbering Salah di DATABASE.md Master Table~~ ✅ FIXED
 
 **File:** `db/mariadb/create-user-sql.sh`  
 **Baris:** 157-161
@@ -504,7 +504,7 @@ INDEX=$((DATA_COUNT + 1))
 
 ---
 
-### BUG-12: REVOKE ALL Menghapus Privilege Database Lama
+### BUG-12: ~~REVOKE ALL Menghapus Privilege Database Lama~~ ✅ FIXED (Tiap DB Punya Dedicated User)
 
 **File:** `db/mariadb/create-user-sql.sh`  
 **Baris:** 98
@@ -544,7 +544,7 @@ FLUSH PRIVILEGES;
 
 ---
 
-### BUG-13: Password di Credential File Tidak Sesuai dengan Password Aktual
+### BUG-13: ~~Password di Credential File Tidak Sesuai dengan Password Aktual~~ ✅ FIXED (1 DB = 1 User)
 
 **File:** `db/mariadb/create-user-sql.sh`  
 **Baris:** 89, 97

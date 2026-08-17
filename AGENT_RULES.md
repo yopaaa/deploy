@@ -23,12 +23,13 @@ Dokumen ini berisi aturan wajib, standar arsitektur terintegrasi, dan konvensi p
 
 ## 🚫 2. Aturan Wajib AI Agent (Strict Rules)
 
-### 🔹 Rule 1: Multi-Database Support & Manajemen Kredensial Markdown
+### 🔹 Rule 1: Multi-Database Support, Dedicated User & Manajemen Kredensial Markdown
 Jika user membuat lebih dari 1 database (misal: database untuk toko, blog, ujian), sistem **DILARANG** menimpa (*overwrite*) kredensial lama:
-1. **File Spesifik Per Database**: Setiap database baru dibuatkan file tersendiri:
+1. **Prinsip 1 Database = 1 Dedicated DB User**: Setiap database yang dibuat **WAJIB** memiliki DB User tersendiri (misal: DB `user_indah_toko` -> User `user_indah_toko`) yang terisolasi dan hanya memiliki akses ke database itu saja.
+2. **File Spesifik Per Database**: Setiap database baru dibuatkan file tersendiri:
    `/home/yopa/filebrowser/data/users/{username}/DATABASE_{db_name}.md`
-2. **File Master Akumulatif (`DATABASE.md`)**: Setiap pembuatan database baru **wajib menambahkan baris baru (append)** ke tabel master `DATABASE.md` milik user tersebut, lengkap dengan nama database, user, password, dan timestamp.
-3. Kredensial database wajib diberi izin baca FileBrowser (`chmod 666`).
+3. **File Master Akumulatif (`DATABASE.md`)**: Setiap pembuatan database baru **wajib menambahkan baris baru (append)** ke tabel master `DATABASE.md` milik user tersebut, lengkap dengan nama database, user, password, dan timestamp.
+4. Kredensial database wajib diberi izin baca FileBrowser (`chmod 666`).
 
 ### 🔹 Rule 2: Container Logs Monitoring API (`POST /api/container/logs`)
 * API menyediakan pengambilan log runtime container dengan parameter `tail` (default `50`, min `1`, max `500`).

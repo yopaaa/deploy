@@ -450,7 +450,8 @@ func handleDatabaseCreate(w http.ResponseWriter, r *http.Request) {
 		Data: map[string]interface{}{
 			"engine":                 req.Engine,
 			"database":               finalDBName,
-			"username":               req.Username,
+			"db_user":                finalDBName,
+			"owner":                  req.Username,
 			"host":                   "mariadb_container",
 			"specific_credential_md": specificFile,
 			"master_credential_md":   masterFile,
