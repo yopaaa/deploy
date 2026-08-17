@@ -141,7 +141,7 @@ cmd := exec.CommandContext(ctx, "bash", scriptPath, req.Username, req.GitRepo)
 
 ---
 
-### BUG-03: SQL Syntax Error untuk Database Name dengan Hyphen
+### BUG-03: ~~SQL Syntax Error untuk Database Name dengan Hyphen~~ ✅ FIXED (ditolak di API)
 
 **File:** `db/mariadb/create-user-sql.sh`  
 **Baris:** 96, 99
@@ -183,7 +183,7 @@ FLUSH PRIVILEGES;
 
 ---
 
-### BUG-04: Whitelist Prefix Matching Terlalu Loose — Command Injection Bypass
+### BUG-04: ~~Whitelist Prefix Matching Terlalu Loose — Command Injection Bypass~~ ✅ FIXED
 
 **File:** `api/main.go`  
 **Baris:** 167-169

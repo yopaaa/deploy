@@ -49,7 +49,6 @@ php spark routes
 php spark env
 php spark cache:clear
 
-php
 php -v
 php -m
 php -i
@@ -120,13 +119,11 @@ bun run
 bun build
 bun test
 
-node
 node -v
 
 # ------------------------------------------------------------------------------
 # 🐍 3. Python Ecosystem (Django, Flask, FastAPI)
 # ------------------------------------------------------------------------------
-python
 python manage.py
 python manage.py migrate
 python manage.py makemigrations
@@ -135,8 +132,8 @@ python manage.py loaddata
 python manage.py dumpdata
 python manage.py collectstatic
 python manage.py check
-python -m
-python3
+python -m pip
+python3 manage.py
 pip
 pip install
 pip list
@@ -153,7 +150,6 @@ gunicorn
 # ------------------------------------------------------------------------------
 # 🔵 4. Go (Golang) Ecosystem
 # ------------------------------------------------------------------------------
-go
 go run
 go build
 go test
@@ -179,12 +175,8 @@ git stash
 # ------------------------------------------------------------------------------
 ls
 pwd
-echo
-cat
+whoami
+du -sh
+df -h
 head
 tail
-grep
-find
-whoami
-du
-df

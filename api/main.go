@@ -126,7 +126,7 @@ type ApiResponse struct {
 	Data    interface{} `json:"data,omitempty"`
 }
 
-var validNameRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
+var validNameRegex = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
 var dangerousCharRegex = regexp.MustCompile(`[;&|` + "`" + `$<>]`)
 
 // Memeriksa apakah perintah custom diizinkan berdasarkan whitelist.txt
@@ -164,8 +164,15 @@ func isCommandAllowed(command string) (bool, string) {
 			continue
 		}
 
-		if strings.HasPrefix(strings.ToLower(cmdTrimmed), strings.ToLower(allowedPrefix)) {
-			return true, ""
+		lowerCmd := strings.ToLower(cmdTrimmed)
+		lowerPrefix := strings.ToLower(allowedPrefix)
+
+		if strings.HasPrefix(lowerCmd, lowerPrefix) {
+			// Pastikan prefix diikuti spasi atau end-of-string (word boundary)
+			// agar "cat" tidak cocok dengan "cat /etc/passwd" kecuali "cat" memang di whitelist
+			if len(lowerCmd) == len(lowerPrefix) || lowerCmd[len(lowerPrefix)] == ' ' {
+				return true, ""
+			}
 		}
 	}
 

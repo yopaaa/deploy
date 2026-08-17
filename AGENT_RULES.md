@@ -50,6 +50,9 @@ Setiap file `build.sh` yang di-generate wajib memiliki pemetaan angka `1–5` ya
 ### 🔹 Rule 5: Keamanan Eksekusi & Whitelist (`whitelist.txt`)
 * Pada API Golang, setiap perintah kustom (Action 5: `extra_param`) **WAJIB** dicek terhadap file `api/whitelist.txt`.
 * Karakter operator berantai seperti `;`, `&`, `|`, `` ` ``, `$`, `>`, `<` **WAJIB DIBLOKIR** untuk mencegah *Command Injection*.
+* Prefix matching **WAJIB** menggunakan word boundary — prefix harus diikuti spasi atau end-of-string. Contoh: prefix `cat` tidak boleh cocok dengan `catapult`.
+* **DILARANG** memasukkan entry whitelist yang terlalu generik dan berbahaya: `php`, `node`, `python`, `python3`, `go`, `cat`, `echo`, `grep`, `find`, `python -m`, `python -c`. Hanya entry spesifik yang aman (misal: `php artisan`, `node -v`, `python manage.py`).
+* Input `username`, `framework`, `database_name` hanya boleh `[a-zA-Z0-9_]` — tanpa hyphen atau simbol lain.
 * Jika perintah tidak cocok dengan salah satu baris di `whitelist.txt`, kembalikan status **HTTP 403 Forbidden**.
 
 ### 🔹 Rule 6: Integrasi GitHub Clone ke Folder FileBrowser
