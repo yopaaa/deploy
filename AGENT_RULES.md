@@ -1,17 +1,20 @@
 # 🤖 Rules & Guidelines for AI Agents (Docker Deploy System)
 
-Dokumen ini berisi aturan wajib, standar arsitektur terintegrasi, dan konvensi pembuatan script deployment Docker serta REST API Golang di lingkungan server ini. Setiap AI Agent yang melakukan modifikasi, penambahan generator, atau pemeliharaan sistem **WAJIB** mematuhi aturan ini.
+Dokumen ini berisi aturan wajib, standar arsitektur terintegrasi, dan konvensi pembuatan script deployment Docker, Database Multi-Engine, serta REST API Golang di lingkungan server ini. Setiap AI Agent yang melakukan modifikasi, penambahan generator, atau pemeliharaan sistem **WAJIB** mematuhi aturan ini.
 
 ---
 
-## 📌 1. Arsitektur Struktur Direktori (FileBrowser & API Integration)
+## 📌 1. Arsitektur Struktur Direktori
 
 | Komponen | Path di Server Host | Keterangan |
 |---|---|---|
 | **Deploy Root (Generator Scripts)** | `/home/yopa/Kuliah/Docker/deploy` | Master generator (`generate-*.sh`, `port.csv`, dll.) |
 | **API Manager (Golang)** | `/home/yopa/Kuliah/Docker/deploy/api` | Backend REST API (`main.go`, `.env`, `whitelist.txt`) |
+| **Database Engines Dir** | `/home/yopa/Kuliah/Docker/deploy/db/{engine}` | Konfigurasi database modular & `.env` kredensial |
 | **Project Config Dir** | `/home/yopa/Documents/website_{username}_{framework}` | Berisi `docker-compose.yml`, `docker-config/nginx/`, `build.sh`, `README.md` |
 | **App Source Code (FileBrowser)** | `/home/yopa/filebrowser/data/users/{username}/{framework}` | Lokasi source code / hasil `git clone` repository GitHub |
+| **User Master Database File (FileBrowser)** | `/home/yopa/filebrowser/data/users/{username}/DATABASE.md` | Tabel akumulatif semua database yang dimiliki user (tidak pernah terhapus/tertindih) |
+| **User Specific DB File (FileBrowser)** | `/home/yopa/filebrowser/data/users/{username}/DATABASE_{db_name}.md` | File kredensial spesifik per database |
 | **Static WWW Source Code** | `/home/yopa/filebrowser/data/users/{username}/www` | Lokasi file HTML statis / web port WWW |
 | **Port Tracking Database** | `/home/yopa/Kuliah/Docker/deploy/port.csv` | File CSV pencatat riwayat port |
 | **Command Whitelist** | `/home/yopa/Kuliah/Docker/deploy/api/whitelist.txt` | Daftar awalan perintah yang diizinkan untuk Action 5 |
@@ -20,7 +23,19 @@ Dokumen ini berisi aturan wajib, standar arsitektur terintegrasi, dan konvensi p
 
 ## 🚫 2. Aturan Wajib AI Agent (Strict Rules)
 
-### 🔹 Rule 1: Standar Universal Action 1–5 pada `build.sh`
+### 🔹 Rule 1: Multi-Database Support & Manajemen Kredensial Markdown
+Jika user membuat lebih dari 1 database (misal: database untuk toko, blog, ujian), sistem **DILARANG** menimpa (*overwrite*) kredensial lama:
+1. **File Spesifik Per Database**: Setiap database baru dibuatkan file tersendiri:
+   `/home/yopa/filebrowser/data/users/{username}/DATABASE_{db_name}.md`
+2. **File Master Akumulatif (`DATABASE.md`)**: Setiap pembuatan database baru **wajib menambahkan baris baru (append)** ke tabel master `DATABASE.md` milik user tersebut, lengkap dengan nama database, user, password, dan timestamp.
+3. Kredensial database wajib diberi izin baca FileBrowser (`chmod 666`).
+
+### 🔹 Rule 2: Keamanan Kredensial Database (.env Support)
+* **DILARANG KERAS** menuliskan password root/database secara *plain text / hardcoded* di dalam `docker-compose.yml` atau script shell `create-user-sql.sh`.
+* Semua kredensial database engine wajib diletakkan di file `.env` lokal masing-masing (misal: `db/mariadb/.env`).
+* Script database wajib membaca file `.env` tersebut secara dinamis.
+
+### 🔹 Rule 3: Standar Universal Action 1–5 pada `build.sh`
 Setiap file `build.sh` yang di-generate wajib memiliki pemetaan angka `1–5` yang konsisten agar mudah dikontrol oleh REST API:
 * **`1` (Full Setup)**: Install package dependencies + inisialisasi environment/build.
 * **`2` (Install Dependencies)**: Package manager install (`composer install`, `npm install`, `pip install`).
@@ -28,45 +43,30 @@ Setiap file `build.sh` yang di-generate wajib memiliki pemetaan angka `1–5` ya
 * **`4` (Database Seeder)**: Database seeder (`php spark db:seed`, `php artisan db:seed`, `prisma db seed`).
 * **`5` (Custom Script)**: Menjalankan perintah bebas yang divalidasi oleh `whitelist.txt`.
 
-### 🔹 Rule 2: Keamanan Eksekusi & Whitelist (`whitelist.txt`)
+### 🔹 Rule 4: Keamanan Eksekusi & Whitelist (`whitelist.txt`)
 * Pada API Golang, setiap perintah kustom (Action 5: `extra_param`) **WAJIB** dicek terhadap file `api/whitelist.txt`.
 * Karakter operator berantai seperti `;`, `&`, `|`, `` ` ``, `$`, `>`, `<` **WAJIB DIBLOKIR** untuk mencegah *Command Injection*.
 * Jika perintah tidak cocok dengan salah satu baris di `whitelist.txt`, kembalikan status **HTTP 403 Forbidden**.
 
-### 🔹 Rule 3: Integrasi GitHub Clone ke Folder FileBrowser
-* Generator script harus mendukung **opsi URL Repository GitHub** (opsional):
-  ```bash
-  if [ -n "$GITHUB_REPO" ]; then
-      git clone "$GITHUB_REPO" "$WWW_DIR"
-  else
-      mkdir -p "$WWW_DIR"
-  fi
-  ```
+### 🔹 Rule 5: Integrasi GitHub Clone ke Folder FileBrowser
+* Generator script harus mendukung **opsi URL Repository GitHub** (opsional).
 * Target clone **HARUS** mengarah ke folder FileBrowser user (`/home/yopa/filebrowser/data/users/${USER_NAME}/${WEBSITE_NAME}`).
 
-### 🔹 Rule 4: Alokasi Port Otomatis via `port.csv`
+### 🔹 Rule 6: Alokasi Port Otomatis via `port.csv`
 * **DILARANG** melakukan hardcode port atau meminta input manual jika file `port.csv` sudah ada.
-* Agent harus selalu mengekstrak port terbawah dari `port.csv`:
-  ```bash
-  LAST_PORT=$(awk -F',' 'NR>1 && $4 ~ /^[0-9]+$/ {print $4}' "$CSV_FILE" | tail -n 1)
-  ```
 * Formula port:
   * `PORT` (App) = `LAST_PORT + 1`
   * `PORT_WWW` (Static) = `PORT + 1`
-  * Default fallback (jika `port.csv` kosong/baru): `10000`.
-* Catat ke `port.csv` dengan format: `username,framework,port_app,port_www,created_at`
+  * Default fallback: `10000`.
 
-### 🔹 Rule 5: Penanganan User & Izin Akses File (Permissions)
+### 🔹 Rule 7: Penanganan User & Izin Akses File (Permissions)
 * Pada `docker-compose.yml`, service `app` **HARUS** menyertakan:
   ```yaml
   user: "${HOST_UID}:${HOST_GID}"
   ```
 * **SANGAT KRUSIAL**: Sebelum menjalankan `docker compose up -d`, script **WAJIB** membuat folder `WWW_DIR` dan `WWW_HTML_DIR` terlebih dahulu di host menggunakan `mkdir -p`.
-* **Pre-set Writable Folders**:
-  * **CodeIgniter 4**: Pre-create `writable/cache`, `writable/logs`, `writable/session`, `writable/uploads`, `writable/debugbar` dan set `chmod -R 777`.
-  * **Laravel**: Pre-create `storage/app`, `storage/framework/cache`, `storage/framework/sessions`, `storage/framework/views`, `storage/logs`, `bootstrap/cache` dan set `chmod -R 777`.
 
-### 🔹 Rule 6: Standar Docker Image per Framework
+### 🔹 Rule 8: Standar Docker Image per Framework
 * **Laravel (Pure)**: Gunakan image custom `nusantara-php84-laravel:1.0` (dari `Dockerfile-laravel`).
 * **CodeIgniter 4 & CI3**: Gunakan image custom `nusantara-php84-ci:1.0` (dari `Dockerfile-ci`).
 * **Next.js**: Gunakan image `node:20-alpine` (dari `Dockerfile-nextjs`) dengan Nginx reverse proxy ke `app:3000`.
@@ -76,6 +76,8 @@ Setiap file `build.sh` yang di-generate wajib memiliki pemetaan angka `1–5` ya
 
 ## 🛠️ 3. Checklist Sebelum Agent Menyelesaikan Task
 
+- [ ] Multi-database credential tersimpan di `DATABASE_{db_name}.md` dan di-append ke `DATABASE.md`.
+- [ ] Kredensial database tersimpan di `.env` (bukan plain text di file script).
 - [ ] Path source code di-mount dan di-clone ke `/home/yopa/filebrowser/data/users/{username}/{framework}`.
 - [ ] Konfigurasi Docker & `build.sh` berada di `/home/yopa/Documents/website_{username}_{framework}`.
 - [ ] `build.sh` lokal mengikuti standar pemetaan Action 1 s/d 5.

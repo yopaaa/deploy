@@ -105,6 +105,12 @@ type ContainerActionRequest struct {
 	Action    string `json:"action"`
 }
 
+type DatabaseCreateRequest struct {
+	Engine       string `json:"engine"`        // "mariadb" (default)
+	Username     string `json:"username"`      // "indah"
+	DatabaseName string `json:"database_name"` // opsional: "toko", "blog"
+}
+
 // Response Data
 type ApiResponse struct {
 	Status  string      `json:"status"`
@@ -335,7 +341,112 @@ func handleGenerate(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// 3. Endpoint: POST /api/container -> Kontrol Docker Compose (restart, stop, start, down)
+// 3. Endpoint: POST /api/database/create -> Membuat database & user di database engine
+func handleDatabaseCreate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"status":"error","message":"Method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req DatabaseCreateRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(ApiResponse{Status: "error", Message: "Payload JSON tidak valid"})
+		return
+	}
+
+	if req.Engine == "" {
+		req.Engine = "mariadb"
+	}
+
+	if !validNameRegex.MatchString(req.Username) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(ApiResponse{Status: "error", Message: "Username mengandung karakter ilegal"})
+		return
+	}
+
+	if req.DatabaseName != "" && !validNameRegex.MatchString(req.DatabaseName) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(ApiResponse{Status: "error", Message: "DatabaseName mengandung karakter ilegal"})
+		return
+	}
+
+	var dbScriptPath string
+	switch strings.ToLower(req.Engine) {
+	case "mariadb", "mysql":
+		dbScriptPath = filepath.Join(cfg.DeployBaseDir, "db", "mariadb", "create-user-sql.sh")
+	default:
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(ApiResponse{
+			Status:  "error",
+			Message: fmt.Sprintf("Database engine '%s' belum didukung. Pilihan: mariadb", req.Engine),
+		})
+		return
+	}
+
+	if _, err := os.Stat(dbScriptPath); os.IsNotExist(err) {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(ApiResponse{
+			Status:  "error",
+			Message: fmt.Sprintf("Script database %s tidak ditemukan", dbScriptPath),
+		})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	var args []string
+	args = append(args, "--user", req.Username)
+	if req.DatabaseName != "" {
+		args = append(args, "--db", req.DatabaseName)
+	}
+
+	cmd := exec.CommandContext(ctx, "bash", append([]string{dbScriptPath}, args...)...)
+	cmd.Dir = filepath.Dir(dbScriptPath)
+
+	outputBytes, err := cmd.CombinedOutput()
+	outputStr := string(outputBytes)
+
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(ApiResponse{
+			Status:  "error",
+			Message: fmt.Sprintf("Gagal membuat database untuk user %s: %v", req.Username, err),
+			Output:  outputStr,
+		})
+		return
+	}
+
+	// Format response
+	finalDBName := fmt.Sprintf("user_%s", req.Username)
+	if req.DatabaseName != "" {
+		if strings.HasPrefix(req.DatabaseName, "user_") || strings.HasPrefix(req.DatabaseName, req.Username+"_") {
+			finalDBName = req.DatabaseName
+		} else {
+			finalDBName = fmt.Sprintf("user_%s_%s", req.Username, req.DatabaseName)
+		}
+	}
+
+	specificFile := fmt.Sprintf("/home/yopa/filebrowser/data/users/%s/DATABASE_%s.md", req.Username, finalDBName)
+	masterFile := fmt.Sprintf("/home/yopa/filebrowser/data/users/%s/DATABASE.md", req.Username)
+
+	json.NewEncoder(w).Encode(ApiResponse{
+		Status:  "success",
+		Message: fmt.Sprintf("Database %s berhasil dibuat untuk engine %s", finalDBName, req.Engine),
+		Output:  outputStr,
+		Data: map[string]interface{}{
+			"engine":                 req.Engine,
+			"database":               finalDBName,
+			"username":               req.Username,
+			"host":                   "mariadb_container",
+			"specific_credential_md": specificFile,
+			"master_credential_md":   masterFile,
+		},
+	})
+}
+
+// 4. Endpoint: POST /api/container -> Kontrol Docker Compose (restart, stop, start, down)
 func handleContainer(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, `{"status":"error","message":"Method not allowed"}`, http.StatusMethodNotAllowed)
@@ -394,7 +505,7 @@ func handleContainer(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// 4. Endpoint: GET /api/list -> Membaca data port.csv
+// 5. Endpoint: GET /api/list -> Membaca data port.csv
 func handleList(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, `{"status":"error","message":"Method not allowed"}`, http.StatusMethodNotAllowed)
@@ -451,7 +562,7 @@ func handleList(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// 5. Endpoint: GET /api/whitelist -> Melihat daftar perintah yang ada di whitelist
+// 6. Endpoint: GET /api/whitelist -> Melihat daftar perintah yang ada di whitelist
 func handleWhitelist(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, `{"status":"error","message":"Method not allowed"}`, http.StatusMethodNotAllowed)
@@ -493,7 +604,7 @@ func handleWhitelist(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// 6. Endpoint: GET /api/health -> Health Check
+// 7. Endpoint: GET /api/health -> Health Check
 func handleHealth(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":    "healthy",
@@ -513,6 +624,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/build", jsonMiddleware(handleBuild))
 	mux.HandleFunc("/api/generate", jsonMiddleware(handleGenerate))
+	mux.HandleFunc("/api/database/create", jsonMiddleware(handleDatabaseCreate))
 	mux.HandleFunc("/api/container", jsonMiddleware(handleContainer))
 	mux.HandleFunc("/api/list", jsonMiddleware(handleList))
 	mux.HandleFunc("/api/whitelist", jsonMiddleware(handleWhitelist))
