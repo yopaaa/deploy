@@ -24,26 +24,35 @@ read -p "Masukkan username            : " USER_NAME
 WEBSITE_NAME="ci3"
 read -p "Masukkan Repo GitHub (opsional): " GITHUB_REPO
 
-# ---------- Otomatisasi Port (CSV) ----------
-if [ ! -f "$CSV_FILE" ]; then
-    echo "username,framework,port_app,port_www,created_at" > "$CSV_FILE"
-fi
+# ---------- Otomatisasi Port (CSV dengan File Locking) ----------
+# Port dialokasikan secara atomik menggunakan flock untuk mencegah
+# race condition saat multiple request API berjalan bersamaan.
+allocate_port() {
+    (
+        flock -x 200
 
-PORT=""
-if [ -s "$CSV_FILE" ]; then
-    LAST_PORT=$(awk -F',' 'NR>1 && $4 ~ /^[0-9]+$/ {print $4}' "$CSV_FILE" | tail -n 1)
-    if [ -n "$LAST_PORT" ]; then
-        PORT=$((LAST_PORT + 1))
-        log_info "Port otomatis terdeteksi dari ${CSV_FILE} (Terakhir: ${LAST_PORT}) -> Port Baru: ${PORT}"
-    fi
-fi
+        if [ ! -f "$CSV_FILE" ]; then
+            echo "username,framework,port_app,port_www,created_at" > "$CSV_FILE"
+        fi
 
-if [ -z "$PORT" ]; then
-    read -p "Masukkan port awal (default 10000): " INPUT_PORT
-    PORT=${INPUT_PORT:-10000}
-fi
+        _LAST_PORT=$(awk -F',' 'NR>1 && $4 ~ /^[0-9]+$/ {print $4}' "$CSV_FILE" | tail -n 1)
+        if [ -n "$_LAST_PORT" ]; then
+            _PORT=$((_LAST_PORT + 1))
+        else
+            _PORT=${1:-10000}
+        fi
 
+        _PORT_WWW=$((_PORT + 1))
+        _CREATED_AT=$(date '+%Y-%m-%d %H:%M:%S')
+        echo "${USER_NAME},${WEBSITE_NAME},${_PORT},${_PORT_WWW},${_CREATED_AT}" >> "$CSV_FILE"
+
+        echo "$_PORT"
+    ) 200>"${CSV_FILE}.lock"
+}
+
+PORT=$(allocate_port 10000)
 PORT_WWW=$((PORT + 1))
+log_info "Port berhasil dialokasikan: App=${PORT}, WWW=${PORT_WWW}"
 
 # ---------- Validasi ----------
 if [ -z "$USER_NAME" ] || [ -z "$WEBSITE_NAME" ] || [ -z "$PORT" ]; then
@@ -322,12 +331,7 @@ EOF
 
 log_success "README.md berhasil dibuat"
 
-# =====================================
-# Simpan Port ke port.csv
-# =====================================
-CREATED_AT=$(date '+%Y-%m-%d %H:%M:%S')
-echo "${USER_NAME},${WEBSITE_NAME},${PORT},${PORT_WWW},${CREATED_AT}" >> "$CSV_FILE"
-log_success "Data port berhasil dicatat ke ${CSV_FILE}"
+# (Port sudah dicatat ke port.csv secara atomik saat alokasi di awal script)
 
 # =====================================
 # Docker Up

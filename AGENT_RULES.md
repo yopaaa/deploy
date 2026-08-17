@@ -56,12 +56,26 @@ Setiap file `build.sh` yang di-generate wajib memiliki pemetaan angka `1–5` ya
 * Generator script harus mendukung **opsi URL Repository GitHub** (opsional).
 * Target clone **HARUS** mengarah ke folder FileBrowser user (`/home/yopa/filebrowser/data/users/${USER_NAME}/${WEBSITE_NAME}`).
 
-### 🔹 Rule 7: Alokasi Port Otomatis via `port.csv`
+### 🔹 Rule 7: Alokasi Port Otomatis via `port.csv` (Atomic dengan `flock`)
 * **DILARANG** melakukan hardcode port atau meminta input manual jika file `port.csv` sudah ada.
 * Formula port:
   * `PORT` (App) = `LAST_PORT + 1`
   * `PORT_WWW` (Static) = `PORT + 1`
   * Default fallback: `10000`.
+* **WAJIB** menggunakan `flock -x` (exclusive file lock) saat membaca DAN menulis ke `port.csv` agar tidak terjadi **race condition** pada request concurrent. Gunakan fungsi `allocate_port()` dengan pola:
+  ```bash
+  allocate_port() {
+      (
+          flock -x 200
+          # baca LAST_PORT dari CSV
+          # hitung PORT baru
+          # tulis langsung ke CSV di dalam lock
+          echo "$_PORT"
+      ) 200>"${CSV_FILE}.lock"
+  }
+  PORT=$(allocate_port 10000)
+  ```
+* **DILARANG** memisahkan operasi baca port dan tulis port ke waktu yang berbeda (misal: baca di awal, tulis di akhir script). Kedua operasi harus dilakukan di dalam satu blok `flock`.
 
 ### 🔹 Rule 8: Penanganan User & Izin Akses File (Permissions)
 * Pada `docker-compose.yml`, service `app` **HARUS** menyertakan:
@@ -77,6 +91,17 @@ Setiap file `build.sh` yang di-generate wajib memiliki pemetaan angka `1–5` ya
 * **Next.js**: Gunakan image `node:20-alpine` (dari `Dockerfile-nextjs`) dengan Nginx reverse proxy ke `app:3000`.
 * **Shared Network**: Koneksikan ke `mariadb-shared-net` (`net-phpmyadmin_shared`).
 
+### 🔹 Rule 10: Kompatibilitas Non-Interaktif (API & Automation)
+* Generator script (`generate-*.sh`) **harus bisa dipanggil dari API Golang** tanpa terminal interaktif.
+* **DILARANG** menggunakan `read -p` tanpa guard `[ -t 0 ]` (cek stdin is terminal). Gunakan pola:
+  ```bash
+  if [ -z "$VAR" ] && [ -t 0 ]; then
+      read -p "Masukkan input: " VAR
+  fi
+  ```
+* **DILARANG** menggunakan `clear` tanpa guard `[ -t 1 ]` karena mengotori output API dengan ANSI escape codes.
+* **DILARANG** menggunakan `sudo docker` dalam script yang dipanggil API. Gunakan `docker` langsung (pastikan user sudah masuk grup `docker`).
+
 ---
 
 ## 🛠️ 3. Checklist Sebelum Agent Menyelesaikan Task
@@ -90,3 +115,5 @@ Setiap file `build.sh` yang di-generate wajib memiliki pemetaan angka `1–5` ya
 - [ ] Perintah Action 5 divalidasi dengan `api/whitelist.txt`.
 - [ ] Folder target `WWW_DIR` & `WWW_HTML_DIR` sudah di-`mkdir` sebelum `docker compose up -d`.
 - [ ] Format pencatatan `port.csv` sesuai skema `username,framework,port_app,port_www,created_at`.
+- [ ] Alokasi port menggunakan `flock -x` untuk atomic read+write (tidak boleh terpisah).
+- [ ] Script `generate-*.sh` kompatibel dengan panggilan non-interaktif dari API (tanpa `read -p` tanpa guard, tanpa `clear` tanpa guard, tanpa `sudo docker`).
