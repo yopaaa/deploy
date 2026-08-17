@@ -1,0 +1,14 @@
+# =======================================================
+# Whitelist Perintah yang Diizinkan (Action 5 / Custom Command)
+# =======================================================
+# Setiap baris mewakili awalan perintah (command prefix) yang diperbolehkan.
+# Baris yang diawali '#' atau baris kosong akan diabaikan.
+
+composer
+php artisan
+php spark
+php
+git pull
+git status
+npm run build
+npm install
