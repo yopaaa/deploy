@@ -104,6 +104,10 @@ echo ""
 mkdir -p "${PROJECT_DIR}/docker-config/nginx"
 
 if [ -n "$GITHUB_REPO" ]; then
+    if [ -d "$WWW_DIR" ] && [ "$(ls -A "$WWW_DIR" 2>/dev/null)" ]; then
+        log_error "Folder ${WWW_DIR} sudah ada dan tidak kosong. Generate hanya bisa dilakukan sekali per user/framework."
+        exit 1
+    fi
     log_info "Cloning repository GitHub ke FileBrowser: ${WWW_DIR}..."
     mkdir -p "$(dirname "$WWW_DIR")"
     git clone "$GITHUB_REPO" "$WWW_DIR"

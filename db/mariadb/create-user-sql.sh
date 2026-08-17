@@ -97,7 +97,7 @@ CREATED_AT=$(date '+%Y-%m-%d %H:%M:%S')
 log_info "Membuat database '${DB_NAME}' dan user '${DB_USER}' di ${CONTAINER_NAME}..."
 
 # Eksekusi Query ke Container MariaDB
-sudo docker exec -i ${CONTAINER_NAME} mariadb -u root -p${ROOT_PW} <<EOF
+sudo docker exec -i -e MYSQL_PWD="${ROOT_PW}" ${CONTAINER_NAME} mariadb -u root <<EOF
 CREATE DATABASE IF NOT EXISTS ${DB_NAME};
 CREATE USER IF NOT EXISTS '${DB_USER}'@'%' IDENTIFIED BY '${DB_PASS}';
 REVOKE ALL PRIVILEGES, GRANT OPTION FROM '${DB_USER}'@'%';

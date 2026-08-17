@@ -234,7 +234,7 @@ if strings.HasPrefix(lowerCmd, lowerPrefix) {
 
 ---
 
-### BUG-05: Password Root MariaDB Terekspos via Process List
+### BUG-05: ~~Password Root MariaDB Terekspos via Process List~~ ✅ FIXED
 
 **File:** `db/mariadb/create-user-sql.sh`  
 **Baris:** 95
@@ -263,7 +263,7 @@ sudo docker exec -i -e MYSQL_PWD="${ROOT_PW}" ${CONTAINER_NAME} mariadb -u root 
 
 ---
 
-### BUG-06: Git Clone Gagal jika Folder Sudah Ada
+### BUG-06: ~~Git Clone Gagal jika Folder Sudah Ada~~ ✅ FIXED
 
 **File:** Semua `generate-*.sh`  
 **Baris:** 83-90
