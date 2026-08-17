@@ -1,0 +1,19 @@
+# =====================================
+# Custom Node.js 20 Alpine Image for Next.js
+# =====================================
+FROM node:20-alpine
+
+# Set Working Directory
+WORKDIR /var/www
+
+# Install essential build dependencies & libc compatibility
+RUN apk add --no-cache bash git curl libc6-compat
+
+# Set environment
+ENV PORT=3000
+
+# Expose Next.js internal port
+EXPOSE 3000
+
+# Default command to run Next.js
+CMD ["npm", "run", "dev"]

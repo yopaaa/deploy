@@ -1,14 +1,190 @@
-# =======================================================
-# Whitelist Perintah yang Diizinkan (Action 5 / Custom Command)
-# =======================================================
-# Setiap baris mewakili awalan perintah (command prefix) yang diperbolehkan.
-# Baris yang diawali '#' atau baris kosong akan diabaikan.
+# ==============================================================================
+# 🛡️ SECURITY WHITELIST COMMANDS (api/whitelist.txt)
+# ==============================================================================
+# Setiap baris mewakili awalan perintah (command prefix) yang diizinkan dijalankan
+# oleh container melalui Action 5 (Custom Command) pada API Golang.
+# Baris kosong dan baris yang diawali dengan '#' akan diabaikan.
+# ==============================================================================
 
+# ------------------------------------------------------------------------------
+# 🐘 1. PHP & Composer Ecosystem (Laravel, CodeIgniter, Symfony, dll.)
+# ------------------------------------------------------------------------------
 composer
+composer install
+composer update
+composer require
+composer remove
+composer dump-autoload
+composer dumpautoload
+composer audit
+composer check-platform-reqs
+
 php artisan
+php artisan migrate
+php artisan migrate:fresh
+php artisan migrate:rollback
+php artisan migrate:status
+php artisan db:seed
+php artisan route:list
+php artisan route:cache
+php artisan route:clear
+php artisan config:cache
+php artisan config:clear
+php artisan cache:clear
+php artisan view:clear
+php artisan optimize
+php artisan optimize:clear
+php artisan key:generate
+php artisan storage:link
+php artisan queue:work
+php artisan queue:listen
+php artisan schedule:run
+
 php spark
+php spark migrate
+php spark migrate:rollback
+php spark migrate:status
+php spark db:seed
+php spark routes
+php spark env
+php spark cache:clear
+
 php
-git pull
-git status
-npm run build
+php -v
+php -m
+php -i
+vendor/bin/phpunit
+vendor/bin/pest
+vendor/bin/phpstan
+vendor/bin/pint
+vendor/bin/phpcs
+
+# ------------------------------------------------------------------------------
+# 🟢 2. Node.js & JavaScript/TypeScript Ecosystem (Next.js, React, Vue, NestJS)
+# ------------------------------------------------------------------------------
+npm
 npm install
+npm i
+npm run
+npm run build
+npm run dev
+npm run start
+npm run test
+npm run lint
+npm run format
+npm update
+npm audit
+npm list
+npm prune
+
+npx
+npx prisma
+npx prisma migrate
+npx prisma migrate dev
+npx prisma migrate deploy
+npx prisma db seed
+npx prisma db push
+npx prisma generate
+npx prisma studio
+npx drizzle-kit
+npx drizzle-kit generate
+npx drizzle-kit migrate
+npx drizzle-kit push
+npx tailwindcss
+npx next build
+npx next start
+npx tsc
+npx typeorm
+npx sequelize
+
+yarn
+yarn install
+yarn build
+yarn dev
+yarn start
+yarn test
+yarn add
+yarn remove
+
+pnpm
+pnpm install
+pnpm build
+pnpm dev
+pnpm start
+pnpm test
+pnpm add
+
+bun
+bun install
+bun run
+bun build
+bun test
+
+node
+node -v
+
+# ------------------------------------------------------------------------------
+# 🐍 3. Python Ecosystem (Django, Flask, FastAPI)
+# ------------------------------------------------------------------------------
+python
+python manage.py
+python manage.py migrate
+python manage.py makemigrations
+python manage.py showmigrations
+python manage.py loaddata
+python manage.py dumpdata
+python manage.py collectstatic
+python manage.py check
+python -m
+python3
+pip
+pip install
+pip list
+pip freeze
+pip check
+pip3
+alembic
+alembic upgrade
+alembic revision
+pytest
+uvicorn
+gunicorn
+
+# ------------------------------------------------------------------------------
+# 🔵 4. Go (Golang) Ecosystem
+# ------------------------------------------------------------------------------
+go
+go run
+go build
+go test
+go mod tidy
+go mod download
+go mod verify
+go version
+
+# ------------------------------------------------------------------------------
+# 🐙 5. Git Synchronization (Safe Read & Pull)
+# ------------------------------------------------------------------------------
+git pull
+git fetch
+git status
+git log
+git branch
+git diff
+git checkout
+git stash
+
+# ------------------------------------------------------------------------------
+# 🔍 6. Diagnostic & Inspection Utilities (Safe Read-Only)
+# ------------------------------------------------------------------------------
+ls
+pwd
+echo
+cat
+head
+tail
+grep
+find
+whoami
+du
+df

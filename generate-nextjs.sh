@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # =====================================
-# Laravel Docker Generator (FileBrowser Target & Git Support)
+# Next.js Docker Generator (FileBrowser Target & Git Support)
 # =====================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -15,13 +15,13 @@ log_error() { echo "[ERROR] $1"; }
 # ---------- Header ----------
 clear
 echo "========================================"
-echo " Laravel Docker Generator"
+echo " Next.js Docker Generator"
 echo "========================================"
 echo ""
 
 # ---------- Input ----------
 read -p "Masukkan username            : " USER_NAME
-WEBSITE_NAME="laravel"
+WEBSITE_NAME="nextjs"
 read -p "Masukkan Repo GitHub (opsional): " GITHUB_REPO
 
 # ---------- Otomatisasi Port (CSV) ----------
@@ -55,11 +55,11 @@ fi
 BASE_DIR="/home/yopa/Documents"
 PROJECT_NAME="website_${USER_NAME}_${WEBSITE_NAME}"
 PROJECT_DIR="${BASE_DIR}/${PROJECT_NAME}"
-WWW_DIR="/home/yopa/filebrowser/data/users/${USER_NAME}/laravel"
+WWW_DIR="/home/yopa/filebrowser/data/users/${USER_NAME}/nextjs"
 WWW_HTML_DIR="/home/yopa/filebrowser/data/users/${USER_NAME}/www"
-APP_CONTAINER="${USER_NAME}_laravel_container"
-NGINX_CONTAINER="${USER_NAME}_nginx_laravel_container"
-NETWORK_NAME="laravel-net-${USER_NAME}_laravel"
+APP_CONTAINER="${USER_NAME}_nextjs_container"
+NGINX_CONTAINER="${USER_NAME}_nginx_nextjs_container"
+NETWORK_NAME="nextjs-net-${USER_NAME}_nextjs"
 HOST_UID=$(id -u)
 HOST_GID=$(id -g)
 
@@ -68,7 +68,7 @@ echo ""
 log_info "Konfigurasi project"
 echo "User          : ${USER_NAME}"
 echo "Website       : ${WEBSITE_NAME}"
-echo "Port Laravel  : ${PORT}"
+echo "Port Next.js  : ${PORT}"
 echo "Port WWW      : ${PORT_WWW}"
 echo "Project Dir   : ${PROJECT_DIR}"
 echo "Source Dir    : ${WWW_DIR} (FileBrowser)"
@@ -93,16 +93,8 @@ else
     mkdir -p "$WWW_DIR"
 fi
 
-mkdir -p "${WWW_DIR}/storage/app"
-mkdir -p "${WWW_DIR}/storage/framework/cache"
-mkdir -p "${WWW_DIR}/storage/framework/sessions"
-mkdir -p "${WWW_DIR}/storage/framework/views"
-mkdir -p "${WWW_DIR}/storage/logs"
-mkdir -p "${WWW_DIR}/bootstrap/cache"
 mkdir -p "${WWW_HTML_DIR}"
-
-chmod -R 777 "${WWW_DIR}/storage" "${WWW_DIR}/bootstrap/cache" 2>/dev/null || true
-log_success "Struktur folder & izin storage Laravel berhasil disiapkan"
+log_success "Struktur folder Next.js berhasil disiapkan"
 
 # =====================================
 # docker-compose.yml
@@ -112,14 +104,16 @@ cat > "${PROJECT_DIR}/docker-compose.yml" <<EOF
 services:
 
   app:
-    image: nusantara-php84-laravel:1.0
+    image: node:20-alpine
     container_name: ${APP_CONTAINER}
     user: "${HOST_UID}:${HOST_GID}"
     restart: unless-stopped
     working_dir: /var/www
+    command: sh -c "if [ ! -d node_modules ] && [ -f package.json ]; then npm install; fi && npm run dev"
+    environment:
+      - PORT=3000
     volumes:
       - ${WWW_DIR}:/var/www
-      - ${WWW_HTML_DIR}:/var/www_html
     networks:
       - ${NETWORK_NAME}
       - mariadb-shared-net
@@ -132,7 +126,6 @@ services:
       - "${PORT}:80"
       - "${PORT_WWW}:${PORT_WWW}"
     volumes:
-      - ${WWW_DIR}:/var/www
       - ${WWW_HTML_DIR}:/var/www_html
       - ./docker-config/nginx:/etc/nginx/conf.d
     networks:
@@ -150,28 +143,20 @@ EOF
 log_success "docker-compose.yml berhasil dibuat"
 
 # =====================================
-# nginx default.conf
+# nginx default.conf (Reverse Proxy ke Next.js app:3000)
 # =====================================
 log_info "Membuat nginx default.conf..."
 cat > "${PROJECT_DIR}/docker-config/nginx/default.conf" <<EOF
 server {
     listen 80;
-    index index.php index.html;
-    root /var/www/public;
-
-    location ~ \\.php$ {
-        try_files \$uri =404;
-        fastcgi_split_path_info ^(.+\\.php)(/.+)$;
-        fastcgi_pass app:9000;
-        fastcgi_index index.php;
-        include fastcgi_params;
-        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
-        fastcgi_param PATH_INFO \$fastcgi_path_info;
-    }
 
     location / {
-        try_files \$uri \$uri/ /index.php?\$query_string;
-        gzip_static on;
+        proxy_pass http://app:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_cache_bypass \$http_upgrade;
     }
 }
 EOF
@@ -185,22 +170,11 @@ log_info "Membuat nginx www.conf..."
 cat > "${PROJECT_DIR}/docker-config/nginx/www.conf" <<EOF
 server {
     listen ${PORT_WWW};
-    index index.php index.html index.htm;
+    index index.html index.htm;
     root /var/www_html;
 
-    location ~ \\.php$ {
-        try_files \$uri =404;
-        fastcgi_split_path_info ^(.+\\.php)(/.+)$;
-        fastcgi_pass app:9000;
-        fastcgi_index index.php;
-        include fastcgi_params;
-        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
-        fastcgi_param PATH_INFO \$fastcgi_path_info;
-    }
-
     location / {
-        try_files \$uri \$uri/ /index.php?\$query_string;
-        gzip_static on;
+        try_files \$uri \$uri/ /index.html;
     }
 }
 EOF
@@ -208,7 +182,7 @@ EOF
 log_success "www.conf berhasil dibuat"
 
 # =====================================
-# build.sh (Helper Script Lokal per Project - Standar 1-5)
+# build.sh (Helper Script Lokal per Project - Standar 1-5 Next.js)
 # =====================================
 log_info "Membuat build.sh khusus di ${PROJECT_DIR}..."
 
@@ -229,58 +203,40 @@ if [ -z "\$CHOICE" ]; then
     echo "========================================"
     echo ""
     echo "Pilih tindakan yang ingin dijalankan:"
-    echo "1) Full Setup (Permissions + .env + Composer + Key Generate)"
-    echo "2) Run Composer Install"
-    echo "3) Run Database Migration (php artisan migrate)"
-    echo "4) Run Database Seeder (php artisan db:seed)"
-    echo "5) Run Custom Command / Script (bebas)"
+    echo "1) Full Setup (npm install + npm run build)"
+    echo "2) Run Package Install (npm install)"
+    echo "3) Run Build Production (npm run build)"
+    echo "4) Run Database Seeder (npx prisma db seed / custom)"
+    echo "5) Run Custom Script / Command (bebas)"
     read -p "Pilihan [1-5]: " CHOICE
 fi
 
 case \$CHOICE in
     1)
-        echo "[INFO] Mengatur folder storage..."
-        mkdir -p "\${WWW_DIR}/storage/app" "\${WWW_DIR}/storage/framework/cache" "\${WWW_DIR}/storage/framework/sessions" "\${WWW_DIR}/storage/framework/views" "\${WWW_DIR}/storage/logs" "\${WWW_DIR}/bootstrap/cache"
-        chmod -R 777 "\${WWW_DIR}/storage" "\${WWW_DIR}/bootstrap/cache" 2>/dev/null || true
-
-        if [ -f "\${WWW_DIR}/.env.example" ] && [ ! -f "\${WWW_DIR}/.env" ]; then
-            cp "\${WWW_DIR}/.env.example" "\${WWW_DIR}/.env"
-            echo "[SUCCESS] File .env berhasil dibuat dari .env.example"
-        fi
-
-        echo "[INFO] Running composer install..."
-        docker exec "\${CONTAINER_NAME}" composer install
-
-        echo "[INFO] Generate Key..."
-        docker exec "\${CONTAINER_NAME}" php artisan key:generate
-        echo "[SUCCESS] Full Setup Laravel Selesai!"
+        echo "[INFO] Running npm install..."
+        docker exec "\${CONTAINER_NAME}" npm install
+        echo "[INFO] Running npm run build..."
+        docker exec "\${CONTAINER_NAME}" npm run build
+        echo "[SUCCESS] Full Setup Next.js Selesai!"
         ;;
 
     2)
-        docker exec "\${CONTAINER_NAME}" composer install
+        docker exec "\${CONTAINER_NAME}" npm install
         ;;
 
     3)
-        docker exec "\${CONTAINER_NAME}" php artisan migrate
+        docker exec "\${CONTAINER_NAME}" npm run build
         ;;
 
     4)
-        SEEDER_NAME="\$EXTRA_PARAM"
-        if [ -z "\$SEEDER_NAME" ] && [ -t 0 ]; then
-            read -p "Masukkan nama Seeder (kosongkan untuk default DatabaseSeeder): " SEEDER_NAME
-        fi
-
-        if [ -n "\$SEEDER_NAME" ]; then
-            docker exec "\${CONTAINER_NAME}" php artisan db:seed --class="\$SEEDER_NAME"
-        else
-            docker exec "\${CONTAINER_NAME}" php artisan db:seed
-        fi
+        SEEDER_CMD="\${EXTRA_PARAM:-npx prisma db seed}"
+        docker exec "\${CONTAINER_NAME}" \$SEEDER_CMD
         ;;
 
     5)
         CUSTOM_CMD="\$EXTRA_PARAM"
         if [ -z "\$CUSTOM_CMD" ] && [ -t 0 ]; then
-            read -p "Masukkan perintah artisan/script (misal: php artisan optimize:clear): " CUSTOM_CMD
+            read -p "Masukkan perintah npm/node (misal: npm run lint): " CUSTOM_CMD
         fi
 
         if [ -n "\$CUSTOM_CMD" ]; then
@@ -306,7 +262,7 @@ log_success "build.sh berhasil dibuat di ${PROJECT_DIR}"
 # =====================================
 log_info "Membuat README.md..."
 cat > "${PROJECT_DIR}/README.md" <<EOF
-# Laravel Docker Deploy
+# Next.js Docker Deploy
 
 ## Informasi
 
@@ -314,21 +270,15 @@ cat > "${PROJECT_DIR}/README.md" <<EOF
 |---|---|
 | User | ${USER_NAME} |
 | Website | ${WEBSITE_NAME} |
-| Port App | ${PORT} |
+| Port Next.js | ${PORT} |
 | Port WWW | ${PORT_WWW} |
 | Source Dir (FileBrowser) | ${WWW_DIR} |
 
 ---
 
-## Database (External)
-
-Silakan gunakan konfigurasi database MariaDB pusat kamu. Gunakan nama container MariaDB pusat sebagai DB Host di file \`.env\` Laravel kamu.
-
----
-
 ## Helper Exec & Build
 
-Jalankan script \`./build.sh\` di direktori ini untuk menjalankan composer install, key generate, migration, seeder, atau custom script:
+Jalankan script \`./build.sh\` di direktori ini untuk menjalankan npm install, build production, seeder, atau custom script:
 
 \`\`\`bash
 ./build.sh
@@ -388,12 +338,12 @@ fi
 # =====================================
 echo ""
 echo "========================================"
-log_success "Laravel project berhasil dibuat"
+log_success "Next.js project berhasil dibuat"
 echo "========================================"
 echo ""
 echo "Project Dir   : ${PROJECT_DIR}"
 echo "Source Dir    : ${WWW_DIR} (FileBrowser)"
-echo "Port App      : ${PORT}"
+echo "Port Next.js  : ${PORT}"
 echo "Port WWW      : ${PORT_WWW}"
 echo "Helper        : ${PROJECT_DIR}/build.sh"
 echo ""

@@ -1,0 +1,47 @@
+# =====================================
+# Custom PHP 8.4 FPM Image for Pure Laravel (Lightweight)
+# =====================================
+FROM php:8.4-fpm-alpine
+
+# Set Working Directory
+WORKDIR /var/www
+
+# Install System Dependencies & Build Tools
+RUN apk add --no-cache \
+    bash \
+    git \
+    curl \
+    unzip \
+    libzip-dev \
+    icu-dev \
+    libpng-dev \
+    libjpeg-turbo-dev \
+    freetype-dev \
+    oniguruma-dev \
+    libxml2-dev \
+    $PHPIZE_DEPS
+
+# Configure and Install PHP Extensions required by Laravel
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install -j$(nproc) \
+        pdo_mysql \
+        mysqli \
+        mbstring \
+        zip \
+        gd \
+        intl \
+        bcmath \
+        exif \
+        opcache \
+        pcntl
+
+# Install Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# Clean up build dependencies to keep image size small
+RUN apk del $PHPIZE_DEPS
+
+# Expose PHP-FPM Port
+EXPOSE 9000
+
+CMD ["php-fpm"]

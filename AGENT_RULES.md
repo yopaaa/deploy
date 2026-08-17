@@ -20,12 +20,20 @@ Dokumen ini berisi aturan wajib, standar arsitektur terintegrasi, dan konvensi p
 
 ## 🚫 2. Aturan Wajib AI Agent (Strict Rules)
 
-### 🔹 Rule 1: Keamanan Eksekusi & Whitelist (`whitelist.txt`)
+### 🔹 Rule 1: Standar Universal Action 1–5 pada `build.sh`
+Setiap file `build.sh` yang di-generate wajib memiliki pemetaan angka `1–5` yang konsisten agar mudah dikontrol oleh REST API:
+* **`1` (Full Setup)**: Install package dependencies + inisialisasi environment/build.
+* **`2` (Install Dependencies)**: Package manager install (`composer install`, `npm install`, `pip install`).
+* **`3` (Migration / Build)**: Database migration (`php spark migrate`, `php artisan migrate`) atau `npm run build`.
+* **`4` (Database Seeder)**: Database seeder (`php spark db:seed`, `php artisan db:seed`, `prisma db seed`).
+* **`5` (Custom Script)**: Menjalankan perintah bebas yang divalidasi oleh `whitelist.txt`.
+
+### 🔹 Rule 2: Keamanan Eksekusi & Whitelist (`whitelist.txt`)
 * Pada API Golang, setiap perintah kustom (Action 5: `extra_param`) **WAJIB** dicek terhadap file `api/whitelist.txt`.
 * Karakter operator berantai seperti `;`, `&`, `|`, `` ` ``, `$`, `>`, `<` **WAJIB DIBLOKIR** untuk mencegah *Command Injection*.
 * Jika perintah tidak cocok dengan salah satu baris di `whitelist.txt`, kembalikan status **HTTP 403 Forbidden**.
 
-### 🔹 Rule 2: Integrasi GitHub Clone ke Folder FileBrowser
+### 🔹 Rule 3: Integrasi GitHub Clone ke Folder FileBrowser
 * Generator script harus mendukung **opsi URL Repository GitHub** (opsional):
   ```bash
   if [ -n "$GITHUB_REPO" ]; then
@@ -36,7 +44,7 @@ Dokumen ini berisi aturan wajib, standar arsitektur terintegrasi, dan konvensi p
   ```
 * Target clone **HARUS** mengarah ke folder FileBrowser user (`/home/yopa/filebrowser/data/users/${USER_NAME}/${WEBSITE_NAME}`).
 
-### 🔹 Rule 3: Alokasi Port Otomatis via `port.csv`
+### 🔹 Rule 4: Alokasi Port Otomatis via `port.csv`
 * **DILARANG** melakukan hardcode port atau meminta input manual jika file `port.csv` sudah ada.
 * Agent harus selalu mengekstrak port terbawah dari `port.csv`:
   ```bash
@@ -48,7 +56,7 @@ Dokumen ini berisi aturan wajib, standar arsitektur terintegrasi, dan konvensi p
   * Default fallback (jika `port.csv` kosong/baru): `10000`.
 * Catat ke `port.csv` dengan format: `username,framework,port_app,port_www,created_at`
 
-### 🔹 Rule 4: Penanganan User & Izin Akses File (Permissions)
+### 🔹 Rule 5: Penanganan User & Izin Akses File (Permissions)
 * Pada `docker-compose.yml`, service `app` **HARUS** menyertakan:
   ```yaml
   user: "${HOST_UID}:${HOST_GID}"
@@ -58,16 +66,10 @@ Dokumen ini berisi aturan wajib, standar arsitektur terintegrasi, dan konvensi p
   * **CodeIgniter 4**: Pre-create `writable/cache`, `writable/logs`, `writable/session`, `writable/uploads`, `writable/debugbar` dan set `chmod -R 777`.
   * **Laravel**: Pre-create `storage/app`, `storage/framework/cache`, `storage/framework/sessions`, `storage/framework/views`, `storage/logs`, `bootstrap/cache` dan set `chmod -R 777`.
 
-### 🔹 Rule 5: Generasi `build.sh` Lokal per Project (Dual Mode API & CLI)
-* Setiap script `generate-*.sh` **WAJIB** menghasilkan file helper lokal bernama **`build.sh`** di dalam `/home/yopa/Documents/website_{user}_{framework}/build.sh`.
-* Script `build.sh` lokal **HARUS kompatibel ganda**:
-  1. **Interactive CLI Mode**: Memiliki prompt menu interaktif (`read -p`) jika dijalankan manual di terminal.
-  2. **Non-Interactive API Mode**: Menerima argumen `$1` (pilihan action) dan `$2` (extra parameter) tanpa menggantung (*hang*) saat dipanggil oleh REST API Golang.
-* `build.sh` yang dihasilkan wajib diberi izin eksekusi (`chmod +x`).
-
-### 🔹 Rule 6: Standar Docker Image & Network
+### 🔹 Rule 6: Standar Docker Image per Framework
+* **Laravel (Pure)**: Gunakan image custom `nusantara-php84-laravel:1.0` (dari `Dockerfile-laravel`).
 * **CodeIgniter 4 & CI3**: Gunakan image custom `nusantara-php84-ci:1.0` (dari `Dockerfile-ci`).
-* **Laravel**: Gunakan image `nusantara-php84:1.0`.
+* **Next.js**: Gunakan image `node:20-alpine` (dari `Dockerfile-nextjs`) dengan Nginx reverse proxy ke `app:3000`.
 * **Shared Network**: Koneksikan ke `mariadb-shared-net` (`net-phpmyadmin_shared`).
 
 ---
@@ -76,8 +78,7 @@ Dokumen ini berisi aturan wajib, standar arsitektur terintegrasi, dan konvensi p
 
 - [ ] Path source code di-mount dan di-clone ke `/home/yopa/filebrowser/data/users/{username}/{framework}`.
 - [ ] Konfigurasi Docker & `build.sh` berada di `/home/yopa/Documents/website_{username}_{framework}`.
+- [ ] `build.sh` lokal mengikuti standar pemetaan Action 1 s/d 5.
 - [ ] Perintah Action 5 divalidasi dengan `api/whitelist.txt`.
 - [ ] Folder target `WWW_DIR` & `WWW_HTML_DIR` sudah di-`mkdir` sebelum `docker compose up -d`.
 - [ ] Format pencatatan `port.csv` sesuai skema `username,framework,port_app,port_www,created_at`.
-- [ ] `docker-compose.yml` mencakup `user: "${HOST_UID}:${HOST_GID}"` dan network `mariadb-shared-net`.
-- [ ] `build.sh` lokal berhasil dibuat di `PROJECT_DIR` dan mendukung argumen CLI/API (`$1`, `$2`).

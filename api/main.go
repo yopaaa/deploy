@@ -88,14 +88,14 @@ func initConfig() {
 // Request Data
 type BuildRequest struct {
 	Username   string `json:"username"`    // Contoh: "indah"
-	Framework  string `json:"framework"`   // Contoh: "ci4", "ci3", "laravel"
-	Action     string `json:"action"`      // Contoh: "1" (Full Setup), "2" (Composer), "3" (Migrate), "4" (Seed), "5" (Custom)
-	ExtraParam string `json:"extra_param"` // Contoh: "UserSeeder" atau "php check_tables.php" (opsional)
+	Framework  string `json:"framework"`   // Contoh: "ci4", "ci3", "laravel", "nextjs"
+	Action     string `json:"action"`      // Contoh: "1" (Full Setup), "2" (Package Install), "3" (Build/Migrate), "4" (Seed), "5" (Custom)
+	ExtraParam string `json:"extra_param"` // Contoh: "UserSeeder" atau "npm run lint" (opsional)
 }
 
 type GenerateRequest struct {
 	Username  string `json:"username"`
-	Framework string `json:"framework"`
+	Framework string `json:"framework"` // "laravel", "ci4", "ci3", "nextjs"
 	GitRepo   string `json:"git_repo"`
 }
 
@@ -123,14 +123,13 @@ func isCommandAllowed(command string) (bool, string) {
 		return false, "Perintah tidak boleh kosong"
 	}
 
-	// Blokir karakter chaining berbahaya (; && || | ` $( > <) untuk mencegah command injection berantai
+	// Blokir karakter chaining berbahaya (; && || | ` $( > <)
 	if dangerousCharRegex.MatchString(cmdTrimmed) {
 		return false, "Perintah mengandung karakter operator berbahaya (; & | ` $ < >)"
 	}
 
 	whitelistPath := cfg.WhitelistFile
 	if !filepath.IsAbs(whitelistPath) {
-		// Coba path relatif terhadap folder api dan deploy
 		if _, err := os.Stat(whitelistPath); os.IsNotExist(err) {
 			whitelistPath = filepath.Join("api", cfg.WhitelistFile)
 			if _, err := os.Stat(whitelistPath); os.IsNotExist(err) {
@@ -152,7 +151,6 @@ func isCommandAllowed(command string) (bool, string) {
 			continue
 		}
 
-		// Jika perintah diawali dengan prefix yang diizinkan (case insensitive)
 		if strings.HasPrefix(strings.ToLower(cmdTrimmed), strings.ToLower(allowedPrefix)) {
 			return true, ""
 		}
@@ -205,18 +203,6 @@ func handleBuild(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(ApiResponse{
 				Status:  "error",
 				Message: reason,
-			})
-			return
-		}
-	}
-
-	// VALIDASI KEAMANAN: Sanitasi nama seeder untuk Action 4
-	if req.Action == "4" && req.ExtraParam != "" {
-		if !validNameRegex.MatchString(req.ExtraParam) {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(ApiResponse{
-				Status:  "error",
-				Message: "Nama seeder hanya boleh berisi huruf, angka, dan underscore",
 			})
 			return
 		}
@@ -299,11 +285,13 @@ func handleGenerate(w http.ResponseWriter, r *http.Request) {
 		scriptName = "generate-ci4.sh"
 	case "ci3", "codeigniter3":
 		scriptName = "generate-ci3.sh"
+	case "next", "nextjs", "react":
+		scriptName = "generate-nextjs.sh"
 	default:
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(ApiResponse{
 			Status:  "error",
-			Message: fmt.Sprintf("Framework '%s' belum didukung. Pilihan: laravel, ci4, ci3", req.Framework),
+			Message: fmt.Sprintf("Framework '%s' belum didukung. Pilihan: laravel, ci4, ci3, nextjs", req.Framework),
 		})
 		return
 	}
