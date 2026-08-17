@@ -324,11 +324,8 @@ func handleGenerate(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(cfg.TimeoutMinutes)*time.Minute)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "bash", scriptPath)
+	cmd := exec.CommandContext(ctx, "bash", scriptPath, req.Username, req.GitRepo)
 	cmd.Dir = cfg.DeployBaseDir
-
-	stdinPayload := fmt.Sprintf("%s\n%s\n", req.Username, req.GitRepo)
-	cmd.Stdin = strings.NewReader(stdinPayload)
 
 	outputBytes, err := cmd.CombinedOutput()
 	outputStr := string(outputBytes)

@@ -60,12 +60,17 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 if [ -z "$DB_USER" ]; then
-    echo "========================================"
-    echo " MariaDB Multi-Database Creator"
-    echo "========================================"
-    echo ""
-    read -p "Masukkan username                     : " DB_USER
-    read -p "Nama Database spesifik (opsional)     : " CUSTOM_DB_NAME
+    if [ -t 0 ]; then
+        echo "========================================"
+        echo " MariaDB Multi-Database Creator"
+        echo "========================================"
+        echo ""
+        read -p "Masukkan username                     : " DB_USER
+        read -p "Nama Database spesifik (opsional)     : " CUSTOM_DB_NAME
+    else
+        log_error "Username wajib diisi (gunakan --user <nama>)"
+        exit 1
+    fi
 fi
 
 # Validasi

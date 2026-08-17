@@ -13,16 +13,30 @@ log_success() { echo "[SUCCESS] $1"; }
 log_error() { echo "[ERROR] $1"; }
 
 # ---------- Header ----------
-clear
+[ -t 1 ] && clear
 echo "========================================"
 echo " CodeIgniter 3 Docker Generator"
 echo "========================================"
 echo ""
 
-# ---------- Input ----------
-read -p "Masukkan username            : " USER_NAME
+# ---------- Input (CLI args atau interaktif) ----------
+USER_NAME="${1:-}"
+GITHUB_REPO="${2:-}"
+
+if [ -z "$USER_NAME" ]; then
+    if [ -t 0 ]; then
+        read -p "Masukkan username            : " USER_NAME
+    else
+        log_error "Username wajib diisi (argumen pertama)"
+        exit 1
+    fi
+fi
+
 WEBSITE_NAME="ci3"
-read -p "Masukkan Repo GitHub (opsional): " GITHUB_REPO
+
+if [ -z "$GITHUB_REPO" ] && [ -t 0 ]; then
+    read -p "Masukkan Repo GitHub (opsional): " GITHUB_REPO
+fi
 
 # ---------- Otomatisasi Port (CSV dengan File Locking) ----------
 # Port dialokasikan secara atomik menggunakan flock untuk mencegah

@@ -89,7 +89,7 @@ PORT_WWW=$((PORT + 1))
 
 ---
 
-### BUG-02: Script Generator Hang saat Dipanggil dari API (stdin blocking)
+### BUG-02: ~~Script Generator Hang saat Dipanggil dari API (stdin blocking)~~ ✅ FIXED
 
 **File yang terdampak:**
 - Semua `generate-*.sh` (baris 23, 25, 42)
@@ -430,7 +430,7 @@ docker compose up -d
 
 ---
 
-### BUG-10: `clear` Command Mengotori Output API
+### BUG-10: ~~`clear` Command Mengotori Output API~~ ✅ FIXED
 
 **File:** Semua `generate-*.sh`  
 **Baris:** 16
