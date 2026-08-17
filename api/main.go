@@ -102,7 +102,14 @@ type GenerateRequest struct {
 type ContainerActionRequest struct {
 	Username  string `json:"username"`
 	Framework string `json:"framework"`
-	Action    string `json:"action"`
+	Action    string `json:"action"` // "restart", "stop", "start", "down", "ps"
+}
+
+type ContainerLogsRequest struct {
+	Username  string `json:"username"`          // "indah"
+	Framework string `json:"framework"`         // "ci4", "laravel", "nextjs"
+	Tail      int    `json:"tail,omitempty"`    // Batasan baris log (contoh: 20, 50, 100, max: 500, default: 50)
+	Service   string `json:"service,omitempty"` // Opsional: "app", "nginx", atau kosong untuk semua service
 }
 
 type DatabaseCreateRequest struct {
@@ -418,7 +425,6 @@ func handleDatabaseCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Format response
 	finalDBName := fmt.Sprintf("user_%s", req.Username)
 	if req.DatabaseName != "" {
 		if strings.HasPrefix(req.DatabaseName, "user_") || strings.HasPrefix(req.DatabaseName, req.Username+"_") {
@@ -446,7 +452,7 @@ func handleDatabaseCreate(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// 4. Endpoint: POST /api/container -> Kontrol Docker Compose (restart, stop, start, down)
+// 4. Endpoint: POST /api/container -> Kontrol Docker Compose (restart, stop, start, down, ps)
 func handleContainer(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, `{"status":"error","message":"Method not allowed"}`, http.StatusMethodNotAllowed)
@@ -505,7 +511,88 @@ func handleContainer(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// 5. Endpoint: GET /api/list -> Membaca data port.csv
+// 5. Endpoint: POST /api/container/logs -> Mengambil log container dengan batasan jumlah baris (tail)
+func handleContainerLogs(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"status":"error","message":"Method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req ContainerLogsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(ApiResponse{Status: "error", Message: "Payload JSON tidak valid"})
+		return
+	}
+
+	if !validNameRegex.MatchString(req.Username) || !validNameRegex.MatchString(req.Framework) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(ApiResponse{Status: "error", Message: "Username atau Framework mengandung karakter ilegal"})
+		return
+	}
+
+	// Validasi batasan tail (default 50 baris, minimal 1, maksimal 500)
+	tailLines := req.Tail
+	if tailLines <= 0 {
+		tailLines = 50
+	} else if tailLines > 500 {
+		tailLines = 500
+	}
+
+	projectFolder := fmt.Sprintf("website_%s_%s", req.Username, req.Framework)
+	projectDir := filepath.Join(cfg.DocumentsBaseDir, projectFolder)
+
+	if _, err := os.Stat(filepath.Join(projectDir, "docker-compose.yml")); os.IsNotExist(err) {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(ApiResponse{
+			Status:  "error",
+			Message: fmt.Sprintf("Project %s tidak ditemukan di %s", projectFolder, projectDir),
+		})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Susun argumen docker compose logs --tail <n> [service]
+	args := []string{"compose", "logs", "--tail", strconv.Itoa(tailLines), "--no-log-prefix"}
+	if req.Service != "" {
+		serviceTrimmed := strings.TrimSpace(strings.ToLower(req.Service))
+		if serviceTrimmed == "app" || serviceTrimmed == "nginx" {
+			args = append(args, serviceTrimmed)
+		}
+	}
+
+	cmd := exec.CommandContext(ctx, "docker", args...)
+	cmd.Dir = projectDir
+
+	outputBytes, err := cmd.CombinedOutput()
+	outputStr := string(outputBytes)
+
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(ApiResponse{
+			Status:  "error",
+			Message: fmt.Sprintf("Gagal mengambil log container: %v", err),
+			Output:  outputStr,
+		})
+		return
+	}
+
+	json.NewEncoder(w).Encode(ApiResponse{
+		Status:  "success",
+		Message: fmt.Sprintf("Berhasil mengambil %d baris log untuk %s", tailLines, projectFolder),
+		Output:  outputStr,
+		Data: map[string]interface{}{
+			"username":   req.Username,
+			"framework":  req.Framework,
+			"tail_lines": tailLines,
+			"service":    req.Service,
+		},
+	})
+}
+
+// 6. Endpoint: GET /api/list -> Membaca data port.csv
 func handleList(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, `{"status":"error","message":"Method not allowed"}`, http.StatusMethodNotAllowed)
@@ -562,7 +649,7 @@ func handleList(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// 6. Endpoint: GET /api/whitelist -> Melihat daftar perintah yang ada di whitelist
+// 7. Endpoint: GET /api/whitelist -> Melihat daftar perintah yang ada di whitelist
 func handleWhitelist(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, `{"status":"error","message":"Method not allowed"}`, http.StatusMethodNotAllowed)
@@ -604,7 +691,7 @@ func handleWhitelist(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// 7. Endpoint: GET /api/health -> Health Check
+// 8. Endpoint: GET /api/health -> Health Check
 func handleHealth(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":    "healthy",
@@ -626,6 +713,7 @@ func main() {
 	mux.HandleFunc("/api/generate", jsonMiddleware(handleGenerate))
 	mux.HandleFunc("/api/database/create", jsonMiddleware(handleDatabaseCreate))
 	mux.HandleFunc("/api/container", jsonMiddleware(handleContainer))
+	mux.HandleFunc("/api/container/logs", jsonMiddleware(handleContainerLogs))
 	mux.HandleFunc("/api/list", jsonMiddleware(handleList))
 	mux.HandleFunc("/api/whitelist", jsonMiddleware(handleWhitelist))
 	mux.HandleFunc("/api/health", jsonMiddleware(handleHealth))

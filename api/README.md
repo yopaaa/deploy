@@ -1,6 +1,6 @@
 # 🚀 Deploy Manager API (Golang)
 
-REST API Server berbasis Golang untuk mengontrol pembuatan container web, database multi-engine, eksekusi build/setup, alokasi port otomatis, dan manajemen lifecycle Docker.
+REST API Server berbasis Golang untuk mengontrol pembuatan container web, database multi-engine, eksekusi build/setup, alokasi port otomatis, pengambilan log container, dan manajemen lifecycle Docker.
 
 ---
 
@@ -20,7 +20,63 @@ WHITELIST_FILE=whitelist.txt
 
 ## 📡 2. Daftar Endpoint & Contoh Penggunaan
 
-### A. Membuat Database & User Baru (`POST /api/database/create`)
+### A. Mengambil Log Container (`POST /api/container/logs`)
+Mengambil log runtime dari container Docker dengan batasan jumlah baris (`tail`), serta filter service opsional (`"app"`, `"nginx"`).
+
+```bash
+# Contoh 1: Mengambil 20 baris log terakhir (semua service)
+curl -X POST http://localhost:8080/api/container/logs \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "indah",
+    "framework": "ci4",
+    "tail": 20
+  }'
+
+# Contoh 2: Mengambil 50 baris log khusus service aplikasi (app)
+curl -X POST http://localhost:8080/api/container/logs \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "indah",
+    "framework": "ci4",
+    "tail": 50,
+    "service": "app"
+  }'
+
+# Contoh 3: Mengambil 100 baris log web server Nginx
+curl -X POST http://localhost:8080/api/container/logs \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "indah",
+    "framework": "ci4",
+    "tail": 100,
+    "service": "nginx"
+  }'
+```
+
+#### 📄 Format Response JSON:
+```json
+{
+  "status": "success",
+  "message": "Berhasil mengambil 20 baris log untuk website_indah_ci4",
+  "output": "172.20.0.1 - - [17/Aug/2026:14:30:00 +0000] \"GET / HTTP/1.1\" 200 1520\n[17-Aug-2026 14:30:05] NOTICE: [pool www] child 7 started",
+  "data": {
+    "username": "indah",
+    "framework": "ci4",
+    "tail_lines": 20,
+    "service": ""
+  }
+}
+```
+
+> 💡 **Ketentuan Parameter `tail`**:
+> * Nilai default: `50` baris.
+> * Minimal: `1` baris.
+> * Maksimal: `500` baris (untuk mencegah beban memori server).
+
+---
+
+### B. Membuat Database & User Baru (`POST /api/database/create`)
 Membuat database dan user otomatis di MariaDB (mendukung pembuatan multi-database untuk 1 user).
 
 ```bash
@@ -39,25 +95,6 @@ curl -X POST http://localhost:8080/api/database/create \
     "engine": "mariadb",
     "username": "indah",
     "database_name": "toko"
-  }'
-```
-
-#### 📄 Output File Kredensial di FileBrowser:
-1. **File Spesifik**: `/home/yopa/filebrowser/data/users/indah/DATABASE_user_indah_toko.md` (kredensial database toko).
-2. **File Master**: `/home/yopa/filebrowser/data/users/indah/DATABASE.md` (tabel berisi semua database yang pernah dibuat user indah, tidak pernah tertimpa).
-
----
-
-### B. Generate Project Web Baru (`POST /api/generate`)
-Membuat project dan container web baru (Laravel, CI4, CI3, Next.js) + auto-port & Git clone.
-
-```bash
-curl -X POST http://localhost:8080/api/generate \
-  -H "Content-Type: application/json" \
-  -d '{
-    "username": "indah",
-    "framework": "ci4",
-    "git_repo": "https://github.com/user/ci4-project.git"
   }'
 ```
 
@@ -99,7 +136,22 @@ curl -X POST http://localhost:8080/api/build \
 
 ---
 
-### D. Kontrol Container (`POST /api/container`)
+### D. Generate Project Web Baru (`POST /api/generate`)
+Membuat project dan container web baru (Laravel, CI4, CI3, Next.js) + auto-port & Git clone.
+
+```bash
+curl -X POST http://localhost:8080/api/generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "indah",
+    "framework": "ci4",
+    "git_repo": "https://github.com/user/ci4-project.git"
+  }'
+```
+
+---
+
+### E. Kontrol Container (`POST /api/container`)
 Mengontrol docker compose pada project (`restart`, `stop`, `start`, `down`, `ps`).
 
 ```bash
@@ -114,7 +166,7 @@ curl -X POST http://localhost:8080/api/container \
 
 ---
 
-### E. List Website & Port (`GET /api/list`)
+### F. List Website & Port (`GET /api/list`)
 Membaca daftar semua website dan port yang aktif dari `port.csv`.
 
 ```bash
@@ -123,14 +175,14 @@ curl -X GET http://localhost:8080/api/list
 
 ---
 
-### F. Melihat Whitelist Perintah (`GET /api/whitelist`)
+### G. Melihat Whitelist Perintah (`GET /api/whitelist`)
 ```bash
 curl -X GET http://localhost:8080/api/whitelist
 ```
 
 ---
 
-### G. Health Check (`GET /api/health`)
+### H. Health Check (`GET /api/health`)
 ```bash
 curl -X GET http://localhost:8080/api/health
 ```

@@ -30,12 +30,16 @@ Jika user membuat lebih dari 1 database (misal: database untuk toko, blog, ujian
 2. **File Master Akumulatif (`DATABASE.md`)**: Setiap pembuatan database baru **wajib menambahkan baris baru (append)** ke tabel master `DATABASE.md` milik user tersebut, lengkap dengan nama database, user, password, dan timestamp.
 3. Kredensial database wajib diberi izin baca FileBrowser (`chmod 666`).
 
-### 🔹 Rule 2: Keamanan Kredensial Database (.env Support)
+### 🔹 Rule 2: Container Logs Monitoring API (`POST /api/container/logs`)
+* API menyediakan pengambilan log runtime container dengan parameter `tail` (default `50`, min `1`, max `500`).
+* Mendukung filter service opsional (`service: "app"` atau `service: "nginx"`).
+
+### 🔹 Rule 3: Keamanan Kredensial Database (.env Support)
 * **DILARANG KERAS** menuliskan password root/database secara *plain text / hardcoded* di dalam `docker-compose.yml` atau script shell `create-user-sql.sh`.
 * Semua kredensial database engine wajib diletakkan di file `.env` lokal masing-masing (misal: `db/mariadb/.env`).
 * Script database wajib membaca file `.env` tersebut secara dinamis.
 
-### 🔹 Rule 3: Standar Universal Action 1–5 pada `build.sh`
+### 🔹 Rule 4: Standar Universal Action 1–5 pada `build.sh`
 Setiap file `build.sh` yang di-generate wajib memiliki pemetaan angka `1–5` yang konsisten agar mudah dikontrol oleh REST API:
 * **`1` (Full Setup)**: Install package dependencies + inisialisasi environment/build.
 * **`2` (Install Dependencies)**: Package manager install (`composer install`, `npm install`, `pip install`).
@@ -43,30 +47,30 @@ Setiap file `build.sh` yang di-generate wajib memiliki pemetaan angka `1–5` ya
 * **`4` (Database Seeder)**: Database seeder (`php spark db:seed`, `php artisan db:seed`, `prisma db seed`).
 * **`5` (Custom Script)**: Menjalankan perintah bebas yang divalidasi oleh `whitelist.txt`.
 
-### 🔹 Rule 4: Keamanan Eksekusi & Whitelist (`whitelist.txt`)
+### 🔹 Rule 5: Keamanan Eksekusi & Whitelist (`whitelist.txt`)
 * Pada API Golang, setiap perintah kustom (Action 5: `extra_param`) **WAJIB** dicek terhadap file `api/whitelist.txt`.
 * Karakter operator berantai seperti `;`, `&`, `|`, `` ` ``, `$`, `>`, `<` **WAJIB DIBLOKIR** untuk mencegah *Command Injection*.
 * Jika perintah tidak cocok dengan salah satu baris di `whitelist.txt`, kembalikan status **HTTP 403 Forbidden**.
 
-### 🔹 Rule 5: Integrasi GitHub Clone ke Folder FileBrowser
+### 🔹 Rule 6: Integrasi GitHub Clone ke Folder FileBrowser
 * Generator script harus mendukung **opsi URL Repository GitHub** (opsional).
 * Target clone **HARUS** mengarah ke folder FileBrowser user (`/home/yopa/filebrowser/data/users/${USER_NAME}/${WEBSITE_NAME}`).
 
-### 🔹 Rule 6: Alokasi Port Otomatis via `port.csv`
+### 🔹 Rule 7: Alokasi Port Otomatis via `port.csv`
 * **DILARANG** melakukan hardcode port atau meminta input manual jika file `port.csv` sudah ada.
 * Formula port:
   * `PORT` (App) = `LAST_PORT + 1`
   * `PORT_WWW` (Static) = `PORT + 1`
   * Default fallback: `10000`.
 
-### 🔹 Rule 7: Penanganan User & Izin Akses File (Permissions)
+### 🔹 Rule 8: Penanganan User & Izin Akses File (Permissions)
 * Pada `docker-compose.yml`, service `app` **HARUS** menyertakan:
   ```yaml
   user: "${HOST_UID}:${HOST_GID}"
   ```
 * **SANGAT KRUSIAL**: Sebelum menjalankan `docker compose up -d`, script **WAJIB** membuat folder `WWW_DIR` dan `WWW_HTML_DIR` terlebih dahulu di host menggunakan `mkdir -p`.
 
-### 🔹 Rule 8: Standar Docker Image per Framework
+### 🔹 Rule 9: Standar Docker Image per Framework
 * **Laravel (Pure)**: Gunakan image custom `nusantara-php84-laravel:1.0` (dari `Dockerfile-laravel`).
 * **CodeIgniter 4 & CI3**: Gunakan image custom `nusantara-php84-ci:1.0` (dari `Dockerfile-ci`).
 * **Next.js**: Gunakan image `node:20-alpine` (dari `Dockerfile-nextjs`) dengan Nginx reverse proxy ke `app:3000`.
@@ -77,6 +81,7 @@ Setiap file `build.sh` yang di-generate wajib memiliki pemetaan angka `1–5` ya
 ## 🛠️ 3. Checklist Sebelum Agent Menyelesaikan Task
 
 - [ ] Multi-database credential tersimpan di `DATABASE_{db_name}.md` dan di-append ke `DATABASE.md`.
+- [ ] Endpoint `/api/container/logs` mendukung limit `tail`.
 - [ ] Kredensial database tersimpan di `.env` (bukan plain text di file script).
 - [ ] Path source code di-mount dan di-clone ke `/home/yopa/filebrowser/data/users/{username}/{framework}`.
 - [ ] Konfigurasi Docker & `build.sh` berada di `/home/yopa/Documents/website_{username}_{framework}`.
