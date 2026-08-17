@@ -88,14 +88,14 @@ func initConfig() {
 // Request Data
 type BuildRequest struct {
 	Username   string `json:"username"`    // Contoh: "indah"
-	Framework  string `json:"framework"`   // Contoh: "ci4", "ci3", "laravel", "nextjs"
+	Framework  string `json:"framework"`   // Contoh: "ci4", "ci3", "laravel", "nextjs", "php"
 	Action     string `json:"action"`      // Contoh: "1" (Full Setup), "2" (Package Install), "3" (Build/Migrate), "4" (Seed), "5" (Custom)
 	ExtraParam string `json:"extra_param"` // Contoh: "UserSeeder" atau "npm run lint" (opsional)
 }
 
 type GenerateRequest struct {
 	Username  string `json:"username"`
-	Framework string `json:"framework"` // "laravel", "ci4", "ci3", "nextjs"
+	Framework string `json:"framework"` // "laravel", "ci4", "ci3", "nextjs", "php"
 	GitRepo   string `json:"git_repo"`
 }
 
@@ -107,7 +107,7 @@ type ContainerActionRequest struct {
 
 type ContainerLogsRequest struct {
 	Username  string `json:"username"`          // "indah"
-	Framework string `json:"framework"`         // "ci4", "laravel", "nextjs"
+	Framework string `json:"framework"`         // "ci4", "laravel", "nextjs", "php"
 	Tail      int    `json:"tail,omitempty"`    // Batasan baris log (contoh: 20, 50, 100, max: 500, default: 50)
 	Service   string `json:"service,omitempty"` // Opsional: "app", "nginx", atau kosong untuk semua service
 }
@@ -300,11 +300,13 @@ func handleGenerate(w http.ResponseWriter, r *http.Request) {
 		scriptName = "generate-ci3.sh"
 	case "next", "nextjs", "react":
 		scriptName = "generate-nextjs.sh"
+	case "php", "native", "html", "nativephp":
+		scriptName = "generate-php.sh"
 	default:
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(ApiResponse{
 			Status:  "error",
-			Message: fmt.Sprintf("Framework '%s' belum didukung. Pilihan: laravel, ci4, ci3, nextjs", req.Framework),
+			Message: fmt.Sprintf("Framework '%s' belum didukung. Pilihan: laravel, ci4, ci3, nextjs, php", req.Framework),
 		})
 		return
 	}
@@ -531,7 +533,6 @@ func handleContainerLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validasi batasan tail (default 50 baris, minimal 1, maksimal 500)
 	tailLines := req.Tail
 	if tailLines <= 0 {
 		tailLines = 50
@@ -554,7 +555,6 @@ func handleContainerLogs(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// Susun argumen docker compose logs --tail <n> [service]
 	args := []string{"compose", "logs", "--tail", strconv.Itoa(tailLines), "--no-log-prefix"}
 	if req.Service != "" {
 		serviceTrimmed := strings.TrimSpace(strings.ToLower(req.Service))

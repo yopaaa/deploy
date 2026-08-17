@@ -41,7 +41,7 @@ Jika user membuat lebih dari 1 database (misal: database untuk toko, blog, ujian
 
 ### 🔹 Rule 4: Standar Universal Action 1–5 pada `build.sh`
 Setiap file `build.sh` yang di-generate wajib memiliki pemetaan angka `1–5` yang konsisten agar mudah dikontrol oleh REST API:
-* **`1` (Full Setup)**: Install package dependencies + inisialisasi environment/build.
+* **`1` (Full Setup / Status Check)**: Install package dependencies / status check.
 * **`2` (Install Dependencies)**: Package manager install (`composer install`, `npm install`, `pip install`).
 * **`3` (Migration / Build)**: Database migration (`php spark migrate`, `php artisan migrate`) atau `npm run build`.
 * **`4` (Database Seeder)**: Database seeder (`php spark db:seed`, `php artisan db:seed`, `prisma db seed`).
@@ -70,7 +70,8 @@ Setiap file `build.sh` yang di-generate wajib memiliki pemetaan angka `1–5` ya
   ```
 * **SANGAT KRUSIAL**: Sebelum menjalankan `docker compose up -d`, script **WAJIB** membuat folder `WWW_DIR` dan `WWW_HTML_DIR` terlebih dahulu di host menggunakan `mkdir -p`.
 
-### 🔹 Rule 9: Standar Docker Image per Framework
+### 🔹 Rule 9: Standar Docker Image per Framework / Service
+* **Native PHP / HTML / CSS**: Gunakan image custom `nusantara-php84-native:1.0` (dari `Dockerfile-php`).
 * **Laravel (Pure)**: Gunakan image custom `nusantara-php84-laravel:1.0` (dari `Dockerfile-laravel`).
 * **CodeIgniter 4 & CI3**: Gunakan image custom `nusantara-php84-ci:1.0` (dari `Dockerfile-ci`).
 * **Next.js**: Gunakan image `node:20-alpine` (dari `Dockerfile-nextjs`) dengan Nginx reverse proxy ke `app:3000`.

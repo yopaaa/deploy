@@ -1,0 +1,43 @@
+# =====================================
+# Custom PHP 8.4 FPM Image for Plain HTML/CSS/PHP (Native)
+# =====================================
+FROM php:8.4-fpm-alpine
+
+# Set Working Directory
+WORKDIR /var/www
+
+# Install System Dependencies & Build Tools
+RUN apk add --no-cache \
+    bash \
+    git \
+    curl \
+    unzip \
+    libzip-dev \
+    icu-dev \
+    libpng-dev \
+    libjpeg-turbo-dev \
+    freetype-dev \
+    oniguruma-dev \
+    $PHPIZE_DEPS
+
+# Configure and Install Essential PHP Extensions (MySQL, GD, Zip, Intl, etc.)
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install -j$(nproc) \
+        pdo_mysql \
+        mysqli \
+        mbstring \
+        zip \
+        gd \
+        intl \
+        opcache
+
+# Install Composer (opsional jika user ingin pakai library kecil)
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# Clean up build dependencies
+RUN apk del $PHPIZE_DEPS
+
+# Expose PHP-FPM Port
+EXPOSE 9000
+
+CMD ["php-fpm"]
